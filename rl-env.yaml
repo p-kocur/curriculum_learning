@@ -1,0 +1,19 @@
+name: rl-env
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+  - numpy
+  - pytorch
+  - torchvision
+  - torchaudio
+  - pip:
+      - gymnasium[box2d,atari,accept-rom-license]
+      - stable-baselines3
+      - pyglet
+      - PyOpenGL
+      - glfw
+      - scikit-learn
+      - matplotlib

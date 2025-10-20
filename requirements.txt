@@ -1,0 +1,11 @@
+numpy
+pytorch
+torchvision
+torchaudio
+gymnasium[box2d,atari,accept-rom-license]
+stable-baselines3
+pyglet
+PyOpenGL
+glfw
+scikit-learn
+matplotlib
