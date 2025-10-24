@@ -12,7 +12,7 @@
     "activation_fn": "relu",
 
     "//nb_training_steps": "Number of learning steps in training.",
-    "nb_training_steps": 5000000,
+    "nb_training_steps": 2000000,
 
     "//nb_training_envs": "Number of parallel training environments.",
     "nb_training_envs": 4,

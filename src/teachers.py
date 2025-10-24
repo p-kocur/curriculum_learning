@@ -12,15 +12,24 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import Ellipse
 import numpy as np
 from gymnasium import spaces
+from pathlib import Path
+import os
 
-from utils.utils import evaluate_agent, dict_from_task, make_env
+from utils.utils import evaluate_agent, dict_from_task, make_env, create_environments
 from environments.rl_teacher import StudentEnv, StudentEnvBandit
 
 class Teacher:
-    def __init__(self, model, param_bounds=None, env_type=None, competence_metric="binary"):
+    def __init__(self, model, param_bounds=None, env_type=None, competence_metric="binary", rl_dict=None, curriculum_dict=None, scenario="bipedal", eval_callback=None, log_dir=None):
         self.param_bounds = param_bounds
         self.mins = np.array([low for (low, _) in self.param_bounds])
         self.maxs = np.array([high for (_, high) in self.param_bounds])
+
+        self.scenario = scenario
+        self.eval_callback = eval_callback
+        self.rl_dict = rl_dict
+        self.curriculum_dict = curriculum_dict
+        self.log_dir = log_dir
+        self.update_every = curriculum_dict.get("update_every", 2000)
         
         self.evaluate_envs = []
         evaluate_tasks = []
@@ -37,19 +46,18 @@ class Teacher:
                 self.evaluate_envs.append(SubprocVecEnv([make_env(0, config_dict=dict_from_task(task, env_type), env_type=env_type)])) if torch.cuda.is_available() else self.evaluate_envs.append(DummyVecEnv([make_env(0, config_dict=dict_from_task(task, env_type), env_type=env_type)]))
 
         elif self.competence_metric == "binary":
-            elements_1 = np.linspace(self.mins[0], self.maxs[0], 5)
-            elements_2 = np.linspace(self.mins[1], self.maxs[1], 5)
+            elements_1 = np.linspace(self.mins[0], self.maxs[0], 7)
+            elements_2 = np.linspace(self.mins[1], self.maxs[1], 7)
             for e1 in elements_1:
                 for e2 in elements_2:
                     evaluate_tasks.append([float(e1), float(e2)])
-            for task in evaluate_tasks:
-                self.evaluate_envs.append(SubprocVecEnv([make_env(0, config_dict=dict_from_task(task, env_type), env_type=env_type)])) if torch.cuda.is_available() else self.evaluate_envs.append(DummyVecEnv([make_env(0, config_dict=dict_from_task(task, env_type), env_type=env_type)]))
+            self.evaluate_envs = SubprocVecEnv([make_env(0, config_dict=dict_from_task(task, env_type), env_type=env_type) for task in evaluate_tasks]) if torch.cuda.is_available() else DummyVecEnv([make_env(0, config_dict=dict_from_task(task, env_type), env_type=env_type) for task in evaluate_tasks])
 
         self.competences = []
+        self.competence_stds = []
         self.model= model
         self.seed = 111
         self.random_state = np.random.RandomState(self.seed)
-        self.partial_rewards = [[] for _ in range(len(self.evaluate_envs))]
         self.plot_directory = None
         
     def compute_competence(self):
@@ -61,35 +69,103 @@ class Teacher:
                 sum += score
             return sum/len(self.evaluate_envs)
         elif self.competence_metric == "binary":
-            sum = 0
-            for i, env in enumerate(self.evaluate_envs):
-                score = evaluate_agent(self.model, env)
-                print(f"Score {i}: {score}")
-                self.partial_rewards[i].append(score)
-                if score >= 200:
-                    sum += 1
-            return sum/len(self.evaluate_envs)
-    
+            # results = []
+            # for i, env in enumerate(self.evaluate_envs):
+            #     score = evaluate_agent(self.model, env, return_std=False)
+            #     print(f"Score {i}: {score}")
+            #     self.partial_rewards[i].append(score)
+            #     if score >= 200:
+            #         results.append(1)
+            #     else:
+            #         results.append(0)
+
+            obs = self.evaluate_envs.reset()
+            done = [False] * self.evaluate_envs.num_envs
+            ep_rewards = [0.0 for _ in range(self.evaluate_envs.num_envs)]
+
+            while not all(done):
+                actions, _ = self.model.predict(obs, deterministic=True)
+                obs, rewards, dones, _ = self.evaluate_envs.step(actions)
+                for i, r in enumerate(rewards):
+                    if not done[i]:
+                        ep_rewards[i] += r
+                done = [d or d_ for d, d_ in zip(done, dones)]
+
+
+            results = []
+            for i, r in enumerate(ep_rewards):
+                if r >= 200:
+                    results.append(1)
+                else:
+                    results.append(0)
+
+            return np.mean(results), np.std(results)
+        
+
+
+        
+        
     def plot(self):
         x = np.linspace(0,self.steps, len(self.competences))
 
-        fig, ax = plt.subplots(len(self.partial_rewards), 1)
-        for i in range(len(self.partial_rewards)):
-            ax[i].plot(x, np.array(self.partial_rewards[i]))
-        fig.savefig(self.plot_directory + "/partial")
-        plt.close(fig)
+        # fig, ax = plt.subplots(len(self.partial_rewards), 1)
+        # for i in range(len(self.partial_rewards)):
+        #     ax[i].plot(x, np.array(self.partial_rewards[i]))
+        # fig.savefig(self.log_dir + "/partial")
+        # plt.close(fig)
 
         fig, ax = plt.subplots(1, 1)
-        ax.plot(x, np.array(self.competences))
-        fig.savefig(self.plot_directory + "/mean")
+        comp = np.array(self.competences)
+        std = np.array(self.competence_stds) if len(self.competence_stds) == len(self.competences) else np.zeros_like(comp)
+        ax.plot(x, comp, label="Mean competence", color="tab:blue")
+        ax.fill_between(x, comp - std, comp + std, color="tab:blue", alpha=0.25, label="Std dev")
+        ax.set_title("Competence over time")
+        ax.set_xlabel("Training steps")
+        ax.set_ylabel("Competence")
+        ax.grid(True)
+        ax.legend()
+        save_path = (self.log_dir / Path("mean.png")) if isinstance(self.log_dir, Path) else str(self.log_dir) + "/mean.png"
+        fig.savefig(save_path)
         plt.close(fig)
+
+    def run_training(self):
+        total_steps = self.rl_dict["nb_training_steps"]
+        step_size = self.curriculum_dict["step_size"]
+        eval_every = int(self.curriculum_dict["eval_every"] / step_size)
+
+        for t in range(0, total_steps, step_size):
+            self.step = t
+            print(f"Teacher training step {t}/{total_steps}")
+            task = self.sample_task()
+            config_dict = dict_from_task(task, self.scenario)
+            train_envs = create_environments(config_dict=config_dict, rl_dict=self.rl_dict, scenario=self.scenario, eval=False)
+            self.model.set_env(train_envs)
+            self.model.learn(total_timesteps=step_size, reset_num_timesteps=False, callback=self.eval_callback)
+            eval_envs_task = create_environments(config_dict=config_dict, rl_dict=self.rl_dict, scenario=self.scenario, eval=True)
+            reward = evaluate_agent(self.model, eval_envs_task, n_episodes=4)
+            self.update(task, reward)
+
+            if t % eval_every == 0:
+                if self.competence_metric == "binary":
+                    current_sum, current_std = self.compute_competence()
+                    print(f"Competence: {current_sum} ± {current_std}")
+                else:
+                    current_sum = self.compute_competence()
+                    print(f"Competence: {current_sum}")
+                self.competences.append(current_sum)
+                self.competence_stds.append(current_std)
+                x = np.linspace(0,self.steps, len(self.competences))
+                fig, ax = plt.subplots(1, 1)
+                ax.plot(x, np.array(self.competences))
+                fig.savefig(self.log_dir / Path(f"{self.env_type}"))
+                plt.close(fig)
 
         
 
 
 class OracleTeacher(Teacher):
-    def __init__(self, model, param_bounds, env_type, fit_every: int = 3, initial_state: np.ndarray = None, direction_vector: np.ndarray = None):
-        super().__init__(model, param_bounds, env_type)
+    def __init__(self, model, param_bounds, env_type, fit_every: int = 3, initial_state: np.ndarray = None, direction_vector: np.ndarray = None, **kwargs):
+        super().__init__(model, param_bounds, env_type, **kwargs)
         self.fit_every = fit_every
         if initial_state is None:
             self.state = np.array([[0.01, 1.0]])
@@ -118,18 +194,10 @@ class OracleTeacher(Teacher):
                 self.state = self.state + self.direction
             else:
                 print(f"Not fitted with r_old = {self.last_sum}")
-            print(f"Current state: {self.state}")
-            self.current_sum = 0
-            
-            x = np.linspace(0,self.step, len(self.competences))
-            fig, ax = plt.subplots(1, 1)
-            ax.plot(x, np.array(self.competences))
-            fig.savefig(f"various_imgs/{self.env_type}_oracle")
-            plt.close(fig)
 
 class RandomTeacher(Teacher):
-    def __init__(self, model, param_bounds, env_type):
-        super().__init__(model, param_bounds, env_type)
+    def __init__(self, model, param_bounds, env_type, **kwargs):
+        super().__init__(model, param_bounds, env_type, **kwargs)
         self.steps = 0
         self.random = "random_teacher"
 
@@ -138,16 +206,7 @@ class RandomTeacher(Teacher):
         return self._sample_random()
     
     def update(self, task, reward):
-        if self.steps % 20 == 0:
-            self.competences.append(self.compute_competence())
-            print("\n\n\n")
-            print(self.steps)
-            print("\n\n\n")
-            x = np.linspace(0,self.steps, len(self.competences))
-            fig, ax = plt.subplots(1, 1)
-            ax.plot(x, np.array(self.competences))
-            fig.savefig(f"various_imgs/{self.env_type}_random")
-            plt.close(fig)
+        pass
 
     def _sample_random(self):
         return np.array([(high-low) * self.random_state.rand() + low for (low, high) in self.param_bounds])
@@ -229,8 +288,8 @@ def plot_gmm_2d(gmm, tasks_scaled, alps, save_path=None):
     plt.close(fig)
 
 class ALPGMMTeacher(Teacher):
-    def __init__(self, model, param_bounds, env_type, max_history=250, fit_every=20):
-        super().__init__(model, param_bounds, env_type)
+    def __init__(self, model, param_bounds, env_type, max_history=250, fit_every=20, **kwargs):
+        super().__init__(model, param_bounds, env_type, **kwargs)
         self.param_bounds = param_bounds
         self.max_history = max_history
         self.task_history = deque(maxlen=max_history)
@@ -241,6 +300,7 @@ class ALPGMMTeacher(Teacher):
         self.steps = 0
         self.gmm_components = 2*(len(param_bounds)+1)
         self.knn = NearestNeighbors(n_neighbors=1, algorithm='kd_tree')
+        os.makedirs(Path(self.log_dir) / Path("gmm_plots"), exist_ok=True)
 
         self.mins = np.array([low for (low, _) in self.param_bounds])
         self.maxs = np.array([high for (_, high) in self.param_bounds])
@@ -279,15 +339,8 @@ class ALPGMMTeacher(Teacher):
         self.task_history.append(task)
         self.alp_history.append(alp)
 
-        if self.steps % 10 == 0:
-            self.competences.append(self.compute_competence())
-            x = np.linspace(0,self.steps, len(self.competences))
-            fig, ax = plt.subplots(1, 1)
-            ax.plot(x, np.array(self.competences))
-            fig.savefig(f"various_imgs/{self.env_type}_alpgmm")
-            plt.close(fig)
-
-        if self.steps % self.fit_every == 0 and self.steps != 0 and len(self.task_history) >= 10:
+        print(f"Timestep: {self.step}")
+        if self.step % self.update_every == 0 and self.steps != 0 and len(self.task_history) >= 10:
             self._fit_gmm()
             
 
@@ -345,7 +398,7 @@ class ALPGMMTeacher(Teacher):
                 final_n_components = config["n_components"]
 
         print(f"Fitted GMM with {final_n_components} components after {self.steps} steps.")
-        plot_gmm_2d(self.gmm, tasks_scaled, alps_scaled, save_path=f"gmm_plots/gmm_plot_{self.steps}.png")
+        plot_gmm_2d(self.gmm, tasks_scaled, alps_scaled, save_path=self.log_dir / Path(f"gmm_plots/gmm_step_{self.step}.png"))
 
     def _compute_alp(self, task, reward):
         if len(self.task_history) == 0:
@@ -358,8 +411,8 @@ class ALPGMMTeacher(Teacher):
     
     
 class RLTeacher(Teacher):
-    def __init__(self, model, param_bounds, env_type, rl_dict, eval_callback, single_training_len=2000):
-        super().__init__(model, param_bounds, env_type)
+    def __init__(self, model, param_bounds, env_type, rl_dict, eval_callback, single_training_len=2000, **kwargs):
+        super().__init__(model, param_bounds, env_type, **kwargs)
         self.model = model
         #self.student_env = StudentEnv(student_model=model, eval_callback=eval_callback, rl_dict=rl_dict, single_training_len=single_training_len)
 
@@ -375,20 +428,21 @@ class RLTeacher(Teacher):
             buffer_size=400,
             batch_size=124,
             train_freq=1,
-            verbose=1,
+            verbose=0,
             seed=0,
         )
 
         self.steps = 0
 
-    def run_training(self, total_timesteps=2500):
-        chunk = 5
-        for i in range(0, total_timesteps, chunk):
+    def run_training(self):
+        step_size = self.curriculum_dict("step_size")
+        eval_every = int(self.curriculum_dict("eval_every") / step_size)
+        for i in range(0, self.rl_dict.get("total_timesteps"), step_size):
 
             self.steps += 1
-            self.teacher_model.learn(total_timesteps=chunk)
+            self.teacher_model.learn(total_timesteps=step_size)
 
-            if i % 25 == 0:
+            if i % eval_every == 0:
                 self.current_sum = self.compute_competence()
                 self.competences.append(self.current_sum)
                 self.current_sum = 0
@@ -396,7 +450,7 @@ class RLTeacher(Teacher):
                 x = np.linspace(0,self.steps, len(self.competences))
                 fig, ax = plt.subplots(1, 1)
                 ax.plot(x, np.array(self.competences))
-                fig.savefig(f"various_imgs/{self.env_type}_rlteacher_bandit_zero")
+                fig.savefig(self.log_dir / Path(f"{self.env_type}"))
                 plt.close(fig)
 
 
