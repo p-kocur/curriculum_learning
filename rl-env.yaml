@@ -1,5 +1,7 @@
-name: rl-env
+name: curriculum-env
 channels:
+  - pytorch
+  - nvidia
   - conda-forge
   - defaults
 dependencies:
@@ -7,6 +9,7 @@ dependencies:
   - pip
   - numpy
   - pytorch
+  - pytorch-cuda=11.8 
   - torchvision
   - torchaudio
   - pip:

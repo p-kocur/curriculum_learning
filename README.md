@@ -18,7 +18,7 @@ You can modify student's RL algorithm configuration by changing adequate fields 
 From home directory run:
 
 ```bash
-python run_experiment.py [env_name] [teacher_name]
+python run_experiment.py --scenario [env_name] --teacher_type [teacher_name]
 ```
 
 Possible environment names:
