@@ -4,7 +4,7 @@ import importlib
 import inspect
 import os
 import time
-import gym
+import gymnasium as gym
 from stable_baselines3 import SAC
 
 from environments.bipedal_parametrized import ParamBipedalWalker

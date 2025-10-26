@@ -1,3 +1,5 @@
+import os
+from pathlib import Path
 import torch
 import gymnasium as gym
 import numpy as np
@@ -189,8 +191,10 @@ class StudentEnvBandit(gym.Env):
 
     metadata = {"render_modes": ["human"], "render_fps": 30}
 
-    def __init__(self, student_model, eval_callback, rl_dict, max_history=250, single_training_len=2000, scenario="bipedal_walker"):
+    def __init__(self, student_model, eval_callback, rl_dict, max_history=250, single_training_len=2000, scenario="bipedal_walker", log_dir=None):
         super().__init__()
+
+        self.log_dir = log_dir
 
         self.action_space = spaces.Box(
             low=0.001,   
@@ -259,7 +263,7 @@ class StudentEnvBandit(gym.Env):
         print(f"Current alp: {alp}")
         reward = alp
 
-        observation = student_reward.astype(np.float32)
+        observation = student_reward
 
         terminated = False
         truncated = False
@@ -292,7 +296,8 @@ class StudentEnvBandit(gym.Env):
             cbar = plt.colorbar(sm, ax=ax)
             cbar.set_label("Absolute Learning Progress")
 
-            fig.savefig(f"rl_plots/states_plot_alp__bandit_{self.counter}.png")
+            os.makedirs(Path(self.log_dir) / Path("rl_plots"), exist_ok=True)
+            fig.savefig(Path(self.log_dir) / Path(f"rl_plots/states_plot_alp_{self.counter}.png"))
 
         print(f"Step: {self.counter}")
 
