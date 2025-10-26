@@ -73,7 +73,7 @@ def run(env_dict, rl_dict, curriculum_dict):
     elif teacher_type == "random":
         teacher = RandomTeacher(model, param_bounds, env_type=scenario.split('_')[0], curriculum_dict=curriculum_dict, rl_dict=rl_dict, log_dir=log_dir)
     elif teacher_type == "rl":
-        teacher = RLTeacher(model, param_bounds, env_type=scenario.split('_')[0], eval_callback=eval_callback, rl_dict=rl_dict, log_dir=log_dir)
+        teacher = RLTeacher(model, param_bounds, env_type=scenario.split('_')[0], eval_callback=eval_callback, curriculum_dict=curriculum_dict, rl_dict=rl_dict, log_dir=log_dir)
     else:
         raise ValueError("Unknown teacher type: {}".format(teacher_type))
 

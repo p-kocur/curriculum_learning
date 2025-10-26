@@ -411,12 +411,12 @@ class ALPGMMTeacher(Teacher):
     
     
 class RLTeacher(Teacher):
-    def __init__(self, model, param_bounds, env_type, rl_dict, eval_callback, single_training_len=2000, **kwargs):
-        super().__init__(model, param_bounds, env_type, **kwargs)
+    def __init__(self, model, param_bounds, env_type, rl_dict, eval_callback, single_training_len=2000, log_dir=None, **kwargs):
+        super().__init__(model, param_bounds, env_type, rl_dict=rl_dict, log_dir=log_dir, **kwargs)
         self.model = model
         #self.student_env = StudentEnv(student_model=model, eval_callback=eval_callback, rl_dict=rl_dict, single_training_len=single_training_len)
 
-        self.student_env = StudentEnvBandit(student_model=model, eval_callback=eval_callback, rl_dict=rl_dict, single_training_len=single_training_len)
+        self.student_env = StudentEnvBandit(student_model=model, eval_callback=eval_callback, rl_dict=rl_dict, single_training_len=single_training_len, log_dir=log_dir)
 
         policy_kwargs = dict(net_arch=[32, 16])
 
@@ -425,8 +425,8 @@ class RLTeacher(Teacher):
             self.student_env,
             policy_kwargs=policy_kwargs,
             learning_rate=1e-2,
-            buffer_size=400,
-            batch_size=124,
+            buffer_size=800,
+            batch_size=200,
             train_freq=1,
             verbose=0,
             seed=0,
@@ -435,9 +435,9 @@ class RLTeacher(Teacher):
         self.steps = 0
 
     def run_training(self):
-        step_size = self.curriculum_dict("step_size")
-        eval_every = int(self.curriculum_dict("eval_every") / step_size)
-        for i in range(0, self.rl_dict.get("total_timesteps"), step_size):
+        step_size = self.curriculum_dict["step_size"]
+        eval_every = int(self.curriculum_dict["eval_every"] / step_size)
+        for i in range(0, self.rl_dict.get("nb_training_steps"), step_size):
 
             self.steps += 1
             self.teacher_model.learn(total_timesteps=step_size)
