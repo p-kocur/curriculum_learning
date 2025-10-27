@@ -10,20 +10,6 @@ from stable_baselines3 import SAC
 from environments.bipedal_parametrized import ParamBipedalWalker
 
 
-#!/usr/bin/env python3
-"""
-test_final_model.py
-
-Load final_model.zip from a log directory and run a simulation for (by default) 2000 steps
-with human rendering. Uses the local environments.bipedal_parametrized module to create
-the environment. Environment parameters can be provided on the command line as
---param key=value (repeatable).
-
-Example:
-    python test_final_model.py --log-dir ./logs/run1 --steps 2000 --param gravity=-9.81 --param terrain='flat'
-"""
-
-
 def parse_params(param_list):
         params = {}
         if not param_list:

@@ -159,6 +159,7 @@ class Teacher:
                 ax.plot(x, np.array(self.competences))
                 fig.savefig(self.log_dir / Path(f"{self.env_type}"))
                 plt.close(fig)
+                self.plot()
 
         
 
@@ -414,7 +415,6 @@ class RLTeacher(Teacher):
     def __init__(self, model, param_bounds, env_type, rl_dict, eval_callback, single_training_len=2000, log_dir=None, **kwargs):
         super().__init__(model, param_bounds, env_type, rl_dict=rl_dict, log_dir=log_dir, **kwargs)
         self.model = model
-        #self.student_env = StudentEnv(student_model=model, eval_callback=eval_callback, rl_dict=rl_dict, single_training_len=single_training_len)
 
         self.student_env = StudentEnvBandit(student_model=model, eval_callback=eval_callback, rl_dict=rl_dict, single_training_len=single_training_len, log_dir=log_dir)
 
@@ -452,6 +452,8 @@ class RLTeacher(Teacher):
                 ax.plot(x, np.array(self.competences))
                 fig.savefig(self.log_dir / Path(f"{self.env_type}"))
                 plt.close(fig)
+
+                self.plot()
 
 
     
