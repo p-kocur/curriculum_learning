@@ -29,3 +29,11 @@ Possible teacher names:
 - oracle
 - random
 - rl
+
+### Test the final model
+
+Run
+
+```bash
+python test_final_model.py --log-dir [path/to/logs] --steps [number of steps, ie. 2000] --param stump_height=[number in range (0, 1)] --param stump_distance=[number in range (0, 1)]
+```

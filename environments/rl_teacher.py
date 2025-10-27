@@ -305,7 +305,7 @@ class StudentEnvBandit(gym.Env):
 
     def reset(self, seed=None, options=None):
 
-        observation = self.last_reward.astype(np.float32)
+        observation = self.last_reward
         info = {}
 
         return observation, info
