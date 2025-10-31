@@ -1,5 +1,5 @@
 {
     "step_size": 2000,
     "eval_every": 10000,
-    "update_every": 10000
+    "update_every": 4000
 }

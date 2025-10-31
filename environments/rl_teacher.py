@@ -204,8 +204,8 @@ class StudentEnvBandit(gym.Env):
         )
 
         self.observation_space = spaces.Box(
-            low=0, 
-            high=1,
+            low=0.0, 
+            high=1.0,
             shape=(1,), 
             dtype=np.float32
         ) 

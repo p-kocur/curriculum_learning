@@ -9,3 +9,4 @@ PyOpenGL
 glfw
 scikit-learn
 matplotlib
+tensorboard

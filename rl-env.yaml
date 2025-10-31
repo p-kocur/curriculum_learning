@@ -1,22 +1,24 @@
-name: curriculum-env
+name: curriculum-3-env
 channels:
   - pytorch
   - nvidia
   - conda-forge
   - defaults
 dependencies:
-  - python=3.11
+  - python=3.11        
   - pip
-  - numpy
-  - pytorch
-  - pytorch-cuda=11.8 
-  - torchvision
-  - torchaudio
+  - numpy=1.26.*
+  - pytorch=2.8.0
+  - pytorch-cuda=11.8
+  - torchvision=0.15.*
+  - torchaudio=2.8.*
   - pip:
-      - gymnasium[box2d,atari,accept-rom-license]
-      - stable-baselines3
-      - pyglet
-      - PyOpenGL
-      - glfw
-      - scikit-learn
-      - matplotlib
+      - "setuptools<81"
+      - gymnasium[box2d,atari,accept-rom-license]==1.2.1
+      - stable-baselines3==2.7.0
+      - pyglet==2.0.*
+      - PyOpenGL==3.1.*
+      - glfw==2.5.*
+      - scikit-learn==1.3.*
+      - matplotlib==3.8.*
+      - tensorboard

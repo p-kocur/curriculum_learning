@@ -5,7 +5,7 @@ from sklearn.neighbors import NearestNeighbors
 from collections import deque
 import random
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
-from stable_baselines3.common.callbacks import EvalCallback
+from stable_baselines3.common.callbacks import EvalCallback, BaseCallback
 from stable_baselines3 import SAC
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -106,7 +106,7 @@ class Teacher:
         
         
     def plot(self):
-        x = np.linspace(0,self.steps, len(self.competences))
+        x = np.linspace(0, len(self.competences), len(self.competences))
 
         # fig, ax = plt.subplots(len(self.partial_rewards), 1)
         # for i in range(len(self.partial_rewards)):
@@ -127,11 +127,12 @@ class Teacher:
         save_path = (self.log_dir / Path("mean.png")) if isinstance(self.log_dir, Path) else str(self.log_dir) + "/mean.png"
         fig.savefig(save_path)
         plt.close(fig)
+        print("Plotted!")
 
     def run_training(self):
         total_steps = self.rl_dict["nb_training_steps"]
         step_size = self.curriculum_dict["step_size"]
-        eval_every = int(self.curriculum_dict["eval_every"] / step_size)
+        eval_every = self.curriculum_dict["eval_every"]
 
         for t in range(0, total_steps, step_size):
             self.step = t
@@ -410,50 +411,98 @@ class ALPGMMTeacher(Teacher):
         reward_old = self.reward_history[indices[0][0]]
         return abs(reward - reward_old)
     
+
+class CompetenceEvalCallback(BaseCallback):
+    """
+    Custom callback that computes competence and plots progress
+    during training at regular intervals.
+    """
+
+    def __init__(self, eval_freq: int, compute_competence_fn, plot_fn, competences, stds, verbose=1):
+        """
+        :param eval_freq: Number of environment steps between evaluations.
+        :param compute_competence_fn: Callable that returns (mean, std)
+        :param plot_fn: Callable to update plots
+        :param verbose: Verbosity level
+        """
+        super().__init__(verbose)
+        self.eval_freq = eval_freq
+        self.compute_competence_fn = compute_competence_fn
+        self.plot_fn = plot_fn
+        self.steps = 0
+        self.competences = competences
+        self.competence_stds = stds
+
+    def _on_step(self) -> bool:
+        # Called at every environment step
+        self.steps += 1
+
+        if self.n_calls % self.eval_freq == 0:
+
+            mean, std = self.compute_competence_fn()
+            self.competences.append(mean)
+            self.competence_stds.append(std)
+
+            print(f"self.competences length: {len(self.competences)}")
+            print(f"self.competence_stds length: {len(self.competence_stds)}")
+
+            if self.verbose > 0:
+                print(f"[Eval #{self.steps}] Competence: {mean:.3f} ± {std:.3f}")
+
+
+            self.plot_fn()
+
+        return True
+    
     
 class RLTeacher(Teacher):
     def __init__(self, model, param_bounds, env_type, rl_dict, eval_callback, single_training_len=2000, log_dir=None, **kwargs):
         super().__init__(model, param_bounds, env_type, rl_dict=rl_dict, log_dir=log_dir, **kwargs)
         self.model = model
 
-        self.student_env = StudentEnvBandit(student_model=model, eval_callback=eval_callback, rl_dict=rl_dict, single_training_len=single_training_len, log_dir=log_dir)
+        self.eval_callback = CompetenceEvalCallback(
+            eval_freq=self.curriculum_dict["eval_every"] // self.curriculum_dict["step_size"],
+            compute_competence_fn=self.compute_competence,
+            plot_fn=self.plot,
+            competences=self.competences,
+            stds=self.competence_stds,
+            verbose=1)
 
-        policy_kwargs = dict(net_arch=[32, 16])
+        self.student_env = StudentEnvBandit(student_model=model, eval_callback=eval_callback, rl_dict=rl_dict, single_training_len=self.curriculum_dict["step_size"], log_dir=log_dir)
+
+        policy_kwargs = dict(net_arch=[16, 8])
 
         self.teacher_model = SAC(
             "MlpPolicy",
             self.student_env,
             policy_kwargs=policy_kwargs,
-            learning_rate=1e-2,
-            buffer_size=800,
-            batch_size=200,
+            learning_rate=3e-4,
+            buffer_size=1000,
+            batch_size=256,
             train_freq=1,
             verbose=0,
             seed=0,
+            tensorboard_log=log_dir / Path("teacher_tensorboard") if log_dir is not None else None,
         )
 
         self.steps = 0
 
     def run_training(self):
-        step_size = self.curriculum_dict["step_size"]
-        eval_every = int(self.curriculum_dict["eval_every"] / step_size)
-        for i in range(0, self.rl_dict.get("nb_training_steps"), step_size):
+        # step_size = self.curriculum_dict["step_size"]
+        # eval_every = int(self.curriculum_dict["eval_every"] / step_size)
+        # training_length = int(self.rl_dict.get("nb_training_steps") / step_size)
 
-            self.steps += 1
-            self.teacher_model.learn(total_timesteps=step_size)
+        # for i in range(0, training_length, 1):
 
-            if i % eval_every == 0:
-                self.current_sum = self.compute_competence()
-                self.competences.append(self.current_sum)
-                self.current_sum = 0
-                
-                x = np.linspace(0,self.steps, len(self.competences))
-                fig, ax = plt.subplots(1, 1)
-                ax.plot(x, np.array(self.competences))
-                fig.savefig(self.log_dir / Path(f"{self.env_type}"))
-                plt.close(fig)
+        #     self.teacher_model.learn(total_timesteps=)
 
-                self.plot()
+        #     self.steps += 1
+        #     mean, std = self.compute_competence()
+        #     self.competences.append(mean)
+        #     self.competence_stds.append(std)
+        #     self.plot()
 
+
+        self.teacher_model.learn(total_timesteps=self.rl_dict.get("nb_training_steps"), callback=self.eval_callback)
 
     
