@@ -78,28 +78,36 @@ class Teacher:
             #         results.append(1)
             #     else:
             #         results.append(0)
+            noises = [1/7 * (self.maxs[0]-self.mins[0]), 1/7 * (self.maxs[1]-self.mins[1])]
 
-            obs = self.evaluate_envs.reset()
-            done = [False] * self.evaluate_envs.num_envs
-            ep_rewards = [0.0 for _ in range(self.evaluate_envs.num_envs)]
+            elements_1 = np.linspace(self.mins[0], self.maxs[0], 7)
+            elements_2 = np.linspace(self.mins[1], self.maxs[1], 7)
+            evaluate_tasks = []
+            for e1 in elements_1:
+                for e2 in elements_2:
+                    evaluate_tasks.append([max(0.001, float(e1+noises[0]*random.random())), max(0.001, float(e2+noises[1]*random.random()))])
+            self.evaluate_envs = SubprocVecEnv([make_env(0, config_dict=dict_from_task(task, self.env_type), env_type=self.env_type) for task in evaluate_tasks]) if torch.cuda.is_available() else DummyVecEnv([make_env(0, config_dict=dict_from_task(task, self.env_type), env_type=self.env_type) for task in evaluate_tasks])
 
-            while not all(done):
-                actions, _ = self.model.predict(obs, deterministic=True)
-                obs, rewards, dones, _ = self.evaluate_envs.step(actions)
-                for i, r in enumerate(rewards):
-                    if not done[i]:
-                        ep_rewards[i] += r
-                done = [d or d_ for d, d_ in zip(done, dones)]
-
-
-            results = []
-            for i, r in enumerate(ep_rewards):
-                if r >= 200:
-                    results.append(1)
-                else:
-                    results.append(0)
-
-            return np.mean(results), np.std(results)
+            all_results = []
+            for _ in range(3):
+                result = 0
+                obs = self.evaluate_envs.reset()
+                done = [False] * self.evaluate_envs.num_envs
+                ep_rewards = [0.0 for _ in range(self.evaluate_envs.num_envs)]
+                while not all(done):
+                    actions, _ = self.model.predict(obs, deterministic=True)
+                    obs, rewards, dones, _ = self.evaluate_envs.step(actions)
+                    for i, r in enumerate(rewards):
+                        if not done[i]:
+                            ep_rewards[i] += r
+                    done = [d or d_ for d, d_ in zip(done, dones)]
+                
+                for i, r in enumerate(ep_rewards):
+                    if r >= 200:
+                        result += 1
+                all_results.append(result)
+            
+            return np.mean(all_results), np.std(all_results)
         
 
 
