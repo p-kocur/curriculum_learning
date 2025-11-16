@@ -105,13 +105,9 @@ class Teacher:
                 for i, r in enumerate(ep_rewards):
                     if r >= 200:
                         result += 1
-                all_results.append(result)
+                all_results.append(result/self.evaluate_envs.num_envs)
             
             return np.mean(all_results), np.std(all_results)
-        
-
-
-        
         
     def plot(self):
         x = np.linspace(0, len(self.competences), len(self.competences))
@@ -125,11 +121,11 @@ class Teacher:
         fig, ax = plt.subplots(1, 1)
         comp = np.array(self.competences)
         std = np.array(self.competence_stds) if len(self.competence_stds) == len(self.competences) else np.zeros_like(comp)
-        ax.plot(x, comp, label="Mean competence", color="tab:blue")
-        ax.fill_between(x, comp - std, comp + std, color="tab:blue", alpha=0.25, label="Std dev")
-        ax.set_title("Competence over time")
-        ax.set_xlabel("Training steps")
-        ax.set_ylabel("Competence")
+        ax.plot(x, comp, label="Średnia kompetencja", color="tab:blue")
+        ax.fill_between(x, comp - std, comp + std, color="tab:blue", alpha=0.25, label="Odchylenie standardowe")
+        ax.set_title("Kompetencja w czasie treningu")
+        ax.set_xlabel("Kroki treningowe")
+        ax.set_ylabel("Kompetencja")
         ax.grid(True)
         ax.legend()
         save_path = (self.log_dir / Path("mean.png")) if isinstance(self.log_dir, Path) else str(self.log_dir) + "/mean.png"

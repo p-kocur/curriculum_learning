@@ -63,7 +63,16 @@ def run(env_dict, rl_dict, curriculum_dict):
 
     # Load model 
     # Or Create a new one TODO
-    model = SAC.load("data/sac_bipedalwalker.zip", env=train_envs, buffer_size=2_000_000, verbose=0)
+    model = SAC(
+        "MlpPolicy",
+        train_envs,
+        buffer_size=rl_dict.get("buffer_size", 1_000_000),
+        learning_rate=rl_dict.get("learning_rate", 3e-4),
+        batch_size=rl_dict.get("batch_size", 256),
+        tau=rl_dict.get("tau", 0.005),  
+    )
+
+    #model = SAC.load("data/sac_bipedalwalker.zip", env=train_envs, buffer_size=2_000_000, verbose=0)
 
     # Choose the right teacher
     if teacher_type == "alpgmm":
