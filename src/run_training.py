@@ -63,14 +63,50 @@ def run(env_dict, rl_dict, curriculum_dict):
 
     # Load model 
     # Or Create a new one TODO
-    model = SAC(
-        "MlpPolicy",
-        train_envs,
-        buffer_size=rl_dict.get("buffer_size", 1_000_000),
-        learning_rate=rl_dict.get("learning_rate", 3e-4),
-        batch_size=rl_dict.get("batch_size", 256),
-        tau=rl_dict.get("tau", 0.005),  
-    )
+    # Build policy kwargs from config
+    act_map = {"relu": nn.ReLU, "tanh": nn.Tanh, "sigmoid": nn.Sigmoid}
+    nb_layers = rl_dict.get("nb_layers", 2)
+    nb_neurons = rl_dict.get("nb_neurons", 64)
+    activation_fn = act_map.get(rl_dict.get("activation_fn", "relu").lower(), nn.ReLU)
+    net_arch = [nb_neurons] * nb_layers
+    policy_kwargs = {"net_arch": net_arch, "activation_fn": activation_fn}
+
+    total_timesteps = rl_dict.get("nb_training_steps", 5_000_000)
+    algorithm = rl_dict.get("algorithm", "ppo").lower()
+
+    if algorithm == "ppo":
+        model = PPO(
+            "MlpPolicy",
+            train_envs,
+            learning_rate=rl_dict.get("learning_rate", 3e-4),
+            batch_size=rl_dict.get("batch_size", 64),
+            policy_kwargs=policy_kwargs,
+            verbose=0,
+        )
+    elif algorithm == "sac":
+        model = SAC(
+            "MlpPolicy",
+            train_envs,
+            buffer_size=rl_dict.get("buffer_size", 1_000_000),
+            learning_rate=rl_dict.get("learning_rate", 3e-4),
+            batch_size=rl_dict.get("batch_size", 256),
+            tau=rl_dict.get("tau", 0.005),
+            policy_kwargs=policy_kwargs,
+            verbose=0,
+        )
+    elif algorithm == "td3":
+        model = TD3(
+            "MlpPolicy",
+            train_envs,
+            buffer_size=rl_dict.get("buffer_size", 1_000_000),
+            learning_rate=rl_dict.get("learning_rate", 3e-4),
+            batch_size=rl_dict.get("batch_size", 100),
+            tau=rl_dict.get("tau", 0.005),
+            policy_kwargs=policy_kwargs,
+            verbose=0,
+        )
+    else:
+        raise ValueError(f"Unknown algorithm: {rl_dict.get('algorithm')}")
 
     #model = SAC.load("data/sac_bipedalwalker.zip", env=train_envs, buffer_size=2_000_000, verbose=0)
 

@@ -17,6 +17,7 @@ import os
 
 from utils.utils import evaluate_agent, dict_from_task, make_env, create_environments
 from environments.rl_teacher import StudentEnv, StudentEnvBandit
+import json
 
 class Teacher:
     def __init__(self, model, param_bounds=None, env_type=None, competence_metric="binary", rl_dict=None, curriculum_dict=None, scenario="bipedal", eval_callback=None, log_dir=None):
@@ -122,6 +123,7 @@ class Teacher:
         comp = np.array(self.competences)
         std = np.array(self.competence_stds) if len(self.competence_stds) == len(self.competences) else np.zeros_like(comp)
         ax.plot(x, comp, label="Średnia kompetencja", color="tab:blue")
+        ax.set_xticks()
         ax.fill_between(x, comp - std, comp + std, color="tab:blue", alpha=0.25, label="Odchylenie standardowe")
         ax.set_title("Kompetencja w czasie treningu")
         ax.set_xlabel("Kroki treningowe")
@@ -132,6 +134,20 @@ class Teacher:
         fig.savefig(save_path)
         plt.close(fig)
         print("Plotted!")
+
+        # Also save data to file
+        try:
+            save_dir = self.log_dir if isinstance(self.log_dir, Path) else Path(str(self.log_dir))
+            save_dir.mkdir(parents=True, exist_ok=True)
+            data = {
+            "competences": [float(x) for x in self.competences],
+            "competence_stds": [float(x) for x in self.competence_stds],
+            }
+            with open(save_dir / "competence_history.json", "w") as f:
+                json.dump(data, f, indent=2)
+            print(f"Saved competence history to {save_dir / 'competence_history.json'}")
+        except Exception as e:
+            print(f"Failed to save competence history: {e}")
 
     def run_training(self):
         total_steps = self.rl_dict["nb_training_steps"]
