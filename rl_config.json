@@ -1,6 +1,6 @@
 {
     "//algorithm": "Name of the algorithm to use. Can be 'ppo'.",
-    "algorithm": "ppo",
+    "algorithm": "sac",
 
     "//nb_layers": "Number of layers for the neural network.",
     "nb_layers": 2,

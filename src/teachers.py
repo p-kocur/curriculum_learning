@@ -123,7 +123,6 @@ class Teacher:
         comp = np.array(self.competences)
         std = np.array(self.competence_stds) if len(self.competence_stds) == len(self.competences) else np.zeros_like(comp)
         ax.plot(x, comp, label="Średnia kompetencja", color="tab:blue")
-        ax.set_xticks()
         ax.fill_between(x, comp - std, comp + std, color="tab:blue", alpha=0.25, label="Odchylenie standardowe")
         ax.set_title("Kompetencja w czasie treningu")
         ax.set_xlabel("Kroki treningowe")
@@ -291,8 +290,8 @@ def plot_gmm_2d(gmm, tasks_scaled, alps, save_path=None):
         )
         ax.add_patch(ellipse)
 
-    ax.set_xlabel("Stump height")
-    ax.set_ylabel("Stump spacing")
+    ax.set_xlabel("Wysokość przeszkody")
+    ax.set_ylabel("Odległość między przeszkodami")
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
 
