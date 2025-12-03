@@ -60,6 +60,8 @@ class Teacher:
         self.seed = 111
         self.random_state = np.random.RandomState(self.seed)
         self.plot_directory = None
+
+        self.current_sum = 0
         
     def compute_competence(self):
         if self.competence_metric == "average":
@@ -123,7 +125,6 @@ class Teacher:
         comp = np.array(self.competences)
         std = np.array(self.competence_stds) if len(self.competence_stds) == len(self.competences) else np.zeros_like(comp)
         ax.plot(x, comp, label="Średnia kompetencja", color="tab:blue")
-        ax.set_xticks()
         ax.fill_between(x, comp - std, comp + std, color="tab:blue", alpha=0.25, label="Odchylenie standardowe")
         ax.set_title("Kompetencja w czasie treningu")
         ax.set_xlabel("Kroki treningowe")
@@ -173,6 +174,7 @@ class Teacher:
                 else:
                     current_sum = self.compute_competence()
                     print(f"Competence: {current_sum}")
+                self.current_sum = current_sum
                 self.competences.append(current_sum)
                 self.competence_stds.append(current_std)
                 x = np.linspace(0,self.steps, len(self.competences))
@@ -194,22 +196,20 @@ class OracleTeacher(Teacher):
         else:
             self.state = initial_state
         if direction_vector is None:
-            self.direction = np.array([[0.02, -0.02]])
+            self.direction = np.array([[0.05, -0.05]])
         else:
             self.direction = direction_vector
         self.last_sum = -np.inf
         self.current_sum = 0
-        self.step = 0
+        self.steps = 0
         
     def sample_task(self):
-        return (self.state + self.direction * random.random())[0, :]
+        return (self.state + np.random.uniform(-0.02, 0.02, size=2))[0, :]
     
     def update(self, task, reward):
-        self.step += 1
+        self.steps += 1
 
-        if self.step % self.fit_every == 0:
-            self.current_sum = self.compute_competence()
-            self.competences.append(self.current_sum)
+        if self.steps % self.fit_every == 0:
             if self.current_sum > self.last_sum:
                 print(f"Fitted with r = {self.current_sum} agains r_old = {self.last_sum}")
                 self.last_sum = self.current_sum
@@ -490,7 +490,7 @@ class RLTeacher(Teacher):
 
         self.student_env = StudentEnvBandit(student_model=model, eval_callback=eval_callback, rl_dict=rl_dict, single_training_len=self.curriculum_dict["step_size"], log_dir=log_dir)
 
-        policy_kwargs = dict(net_arch=[16, 8])
+        policy_kwargs = dict(net_arch=[32, 16])
 
         self.teacher_model = SAC(
             "MlpPolicy",

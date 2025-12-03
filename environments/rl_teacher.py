@@ -83,7 +83,7 @@ class StudentEnv(gym.Env):
         )
 
         student_reward = evaluate_agent(self.student_model, eval_envs)
-        student_reward = (student_reward + 100) / (230 + 100)
+        student_reward = (student_reward + 100) / (250 + 100)
 
         task = self.state
         alp = self._compute_alp(task, student_reward)
@@ -103,18 +103,28 @@ class StudentEnv(gym.Env):
 
         if len(self.states) > 0 and self.counter % 20 == 0:
             fig, ax = plt.subplots(figsize=(6, 6))
-            plt.xlabel("Stump Height")
-            plt.ylabel("Stump Distance")
+            plt.xlabel("Wysokość przeszkody")
+            plt.ylabel("Odległość między przeszkodami")
             plt.xlim(0, 1)
             plt.ylim(0, 1)
-            plt.title("States Scatterplot with ALP Coloring")
+            plt.title("Wykres rozrzutu stanów z kolorowaniem ALP")
 
             states_array = np.array(list(itertools.islice(self.states, len(self.states)-200, len(self.states))) if len(self.states) >= 200 else np.array(self.states))
             alp_array = np.array(list(itertools.islice(self.alp_history, len(self.alp_history)-200, len(self.alp_history))) if len(self.alp_history) >= 200 else np.array(self.alp_history))
 
+            if len(alp_array) > 0:
+                min_a = alp_array.min()
+                max_a = alp_array.max()
+                if max_a == min_a:
+                    alp_array = np.zeros_like(alp_array)
+                else:
+                    alp_array = (alp_array - min_a) / (max_a - min_a)
+
             cmap = plt.get_cmap("viridis")
             norm = plt.Normalize(vmin=alp_array.min() if len(alp_array) > 0 else 0, vmax=alp_array.max() if len(alp_array) > 0 else 1)
             ax.scatter(states_array[:, 0], states_array[:, 1], c=alp_array, cmap=cmap, norm=norm)
+            ax.set_xlim(0, 1)
+            ax.set_ylim(0, 1)
             sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
             sm.set_array([])
             cbar = plt.colorbar(sm, ax=ax)

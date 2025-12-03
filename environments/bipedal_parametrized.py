@@ -45,7 +45,7 @@ class ParamBipedalWalker(BipedalWalker):
             if state == STUMP and oneshot:
                 if oneshot:
                     counter = int(0.5 / new_terrain_step)
-                actual_stump_height = max(np.random.normal(self.stump_height, 0.05), 0.001)
+                actual_stump_height = max(np.random.normal(self.stump_height, 0.02), 0.001)
                 poly = [
                     (x, y),
                     (x + counter * new_terrain_step, y),
