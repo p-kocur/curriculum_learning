@@ -5,7 +5,7 @@ import inspect
 import os
 import time
 import gymnasium as gym
-from stable_baselines3 import SAC
+from stable_baselines3 import SAC, PPO
 
 from environments.bipedal_parametrized import ParamBipedalWalker
 
@@ -48,7 +48,7 @@ def main():
         env = ParamBipedalWalker(**params, render_mode="human")
 
         # load model (stable-baselines3)
-        model = SAC.load(model_path, env=env)
+        model = PPO.load(model_path, env=env)
 
         env.training = False
         env.norm_reward = False

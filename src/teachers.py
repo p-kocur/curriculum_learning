@@ -291,8 +291,8 @@ def plot_gmm_2d(gmm, tasks_scaled, alps, save_path=None):
         )
         ax.add_patch(ellipse)
 
-    ax.set_xlabel("Stump height")
-    ax.set_ylabel("Stump spacing")
+    ax.set_xlabel("Wysokość przeszkody")
+    ax.set_ylabel("Odległość między przeszkodami")
     ax.set_xlim(0, 1)
     ax.set_ylim(0, 1)
 
