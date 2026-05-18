@@ -5,6 +5,9 @@ from stable_baselines3 import PPO, SAC, TD3
 from stable_baselines3.common.callbacks import EvalCallback
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.vec_env import SubprocVecEnv, DummyVecEnv
+
+from sb3_contrib import RecurrentPPO
+
 import torch
 from torch import nn
 import random
@@ -74,7 +77,17 @@ def run(env_dict, rl_dict, curriculum_dict):
     total_timesteps = rl_dict.get("nb_training_steps", 5_000_000)
     algorithm = rl_dict.get("algorithm", "ppo").lower()
 
-    if algorithm == "ppo":
+    if algorithm == "rppo":
+        print("Using Recurrent PPO")
+        model = RecurrentPPO(
+            "MlpLstmPolicy",
+            train_envs,
+            learning_rate=rl_dict.get("learning_rate", 3e-4),
+            batch_size=rl_dict.get("batch_size", 64),
+            policy_kwargs=policy_kwargs,
+            verbose=0,
+        )
+    elif algorithm == "ppo":
         model = PPO(
             "MlpPolicy",
             train_envs,

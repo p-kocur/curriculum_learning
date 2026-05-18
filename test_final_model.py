@@ -48,7 +48,7 @@ def main():
         env = ParamBipedalWalker(**params, render_mode="human")
 
         # load model (stable-baselines3)
-        model = PPO.load(model_path, env=env)
+        model = SAC.load(model_path, env=env)
 
         env.training = False
         env.norm_reward = False

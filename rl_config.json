@@ -1,6 +1,6 @@
 {
     "//algorithm": "Name of the algorithm to use. Can be 'ppo'.",
-    "algorithm": "sac",
+    "algorithm": "ppo",
 
     "//nb_layers": "Number of layers for the neural network.",
     "nb_layers": 2,
@@ -21,5 +21,5 @@
     "nb_eval_envs": 4,
 
     "//nb_eval_every": "Evaluate the agent every n steps.",
-    "nb_eval_every": 20000
+    "nb_eval_every": 50000
 }

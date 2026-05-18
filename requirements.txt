@@ -1,5 +1,5 @@
 numpy
-pytorch
+torch
 torchvision
 torchaudio
 gymnasium[box2d,atari,accept-rom-license]
@@ -10,3 +10,4 @@ glfw
 scikit-learn
 matplotlib
 tensorboard
+skrl[torch]

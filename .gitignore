@@ -2,3 +2,13 @@
 .vscode/
 __pycache__/
 results/
+runs/
+alp_to_train.py
+bernard_obstacles.py
+env_to_learn_walking.py
+get_results.py
+my_freaking_env.py
+plot_alp.ipynb
+plot_oracle.ipynb
+test_alp.py
+why_slow.py

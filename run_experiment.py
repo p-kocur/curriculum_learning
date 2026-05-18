@@ -4,12 +4,14 @@ import argparse
 import json
 
 from src.run_training import run
+from src.run_training_skrl import run as run_skrl
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run RL experiment with specified scenario and teacher type.")
     parser.add_argument('--scenario', type=str, required=True, help='The scenario to run (e.g., bipedalwalker_easy, cartpole_hard).')
     parser.add_argument('--teacher_type', type=str, required=True, help='The type of teacher to use (e.g., alpgmm, oracle, random, rl).')
-    
+    parser.add_argument('--library', type=str, required=True, help='The library to use (e.g., stable_baselines3, skrl).')
+
     args = parser.parse_args()
 
     if args.scenario == "bipedal_walker":
@@ -26,7 +28,10 @@ if __name__ == "__main__":
     
     curriculum_dict["teacher_type"] = args.teacher_type
     
-    run(env_dict, rl_dict, curriculum_dict)
 
-
-
+    if args.library == "stable_baselines3":
+        run(env_dict, rl_dict, curriculum_dict)
+    elif args.library == "skrl":
+        run_skrl(env_dict, rl_dict, curriculum_dict)
+    else:
+        raise ValueError("Unknown library: {}".format(args.library))

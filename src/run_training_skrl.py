@@ -1,0 +1,339 @@
+import copy
+import json
+import os
+import time
+from dataclasses import asdict
+import warnings
+
+import gymnasium as gym
+import numpy as np
+import torch
+from torch import nn
+import random
+
+warnings.filterwarnings(
+    "ignore",
+    message=r"pkg_resources is deprecated as an API.*",
+    category=UserWarning,
+)
+
+if hasattr(gym, "experimental") and not hasattr(gym.experimental, "vector"):
+    gym.experimental.vector = gym.vector
+
+from skrl.agents.torch.ppo import PPO, PPO_CFG
+from skrl.agents.torch.sac import SAC, SAC_CFG
+from skrl.agents.torch.td3 import TD3, TD3_CFG
+from skrl.memories.torch import RandomMemory
+from skrl.trainers.torch import SequentialTrainer, SequentialTrainerCfg
+from skrl.envs.wrappers.torch import wrap_env
+from skrl.models.torch import Model, GaussianMixin, DeterministicMixin
+
+from src.teachers_skrl import OracleTeacher, ALPGMMTeacher, RandomTeacher
+from utils.utils_skrl import make_env
+
+
+class VecEnvGymWrapper(gym.Env):
+    """Adapter to expose a vector env using the Gymnasium API."""
+
+    metadata = {"render_modes": []}
+
+    def __init__(self, vec_env):
+        super().__init__()
+        self.vec_env = vec_env
+        self.observation_space = vec_env.observation_space
+        self.action_space = vec_env.action_space
+        self.num_envs = getattr(vec_env, "num_envs", 1)
+
+    def reset(self, *, seed: int | None = None, options: dict | None = None):
+        result = self.vec_env.reset(seed=seed, options=options)
+        if isinstance(result, tuple) and len(result) == 2:
+            obs, info = result
+        else:
+            obs, info = result, {}
+        return obs, info
+
+    def step(self, action):
+        result = self.vec_env.step(action)
+        if len(result) == 5:
+            obs, rewards, terminated, truncated, infos = result
+        else:
+            obs, rewards, dones, infos = result
+            terminated = dones
+            truncated = np.zeros_like(dones, dtype=bool)
+        return obs, rewards, terminated, truncated, infos
+
+    def close(self):
+        self.vec_env.close()
+
+
+class GaussianPolicy(GaussianMixin, Model):
+    def __init__(self, observation_space, action_space, device, net_arch, activation_fn):
+        Model.__init__(self, observation_space=observation_space, action_space=action_space, device=device)
+        GaussianMixin.__init__(self, clip_actions=True, clip_log_std=True)
+        obs_dim = int(np.prod(observation_space.shape))
+        act_dim = int(np.prod(action_space.shape))
+
+        layers = []
+        in_dim = obs_dim
+        for hidden in net_arch:
+            layers.append(nn.Linear(in_dim, hidden))
+            layers.append(activation_fn())
+            in_dim = hidden
+        layers.append(nn.Linear(in_dim, act_dim))
+        self.net = nn.Sequential(*layers)
+        self.log_std = nn.Parameter(torch.zeros(act_dim))
+
+    def compute(self, inputs, role=""):
+        obs = inputs["observations"]
+        if obs.dim() > 2:
+            obs = obs.view(obs.size(0), -1)
+        mean = self.net(obs)
+        log_std = self.log_std.expand_as(mean)
+        return mean, {"log_std": log_std}
+
+
+class DeterministicPolicy(DeterministicMixin, Model):
+    def __init__(self, observation_space, action_space, device, net_arch, activation_fn):
+        Model.__init__(self, observation_space=observation_space, action_space=action_space, device=device)
+        DeterministicMixin.__init__(self, clip_actions=True)
+        obs_dim = int(np.prod(observation_space.shape))
+        act_dim = int(np.prod(action_space.shape))
+
+        layers = []
+        in_dim = obs_dim
+        for hidden in net_arch:
+            layers.append(nn.Linear(in_dim, hidden))
+            layers.append(activation_fn())
+            in_dim = hidden
+        layers.append(nn.Linear(in_dim, act_dim))
+        self.net = nn.Sequential(*layers)
+
+    def compute(self, inputs, role=""):
+        obs = inputs["observations"]
+        if obs.dim() > 2:
+            obs = obs.view(obs.size(0), -1)
+        actions = self.net(obs)
+        return actions, {}
+
+
+class ValueModel(DeterministicMixin, Model):
+    def __init__(self, observation_space, device, net_arch, activation_fn):
+        Model.__init__(self, observation_space=observation_space, device=device)
+        DeterministicMixin.__init__(self)
+        obs_dim = int(np.prod(observation_space.shape))
+
+        layers = []
+        in_dim = obs_dim
+        for hidden in net_arch:
+            layers.append(nn.Linear(in_dim, hidden))
+            layers.append(activation_fn())
+            in_dim = hidden
+        layers.append(nn.Linear(in_dim, 1))
+        self.net = nn.Sequential(*layers)
+
+    def compute(self, inputs, role=""):
+        obs = inputs["observations"]
+        if obs.dim() > 2:
+            obs = obs.view(obs.size(0), -1)
+        value = self.net(obs)
+        return value, {}
+
+
+class CriticModel(DeterministicMixin, Model):
+    def __init__(self, observation_space, action_space, device, net_arch, activation_fn):
+        Model.__init__(self, observation_space=observation_space, action_space=action_space, device=device)
+        DeterministicMixin.__init__(self)
+        obs_dim = int(np.prod(observation_space.shape))
+        act_dim = int(np.prod(action_space.shape))
+
+        layers = []
+        in_dim = obs_dim + act_dim
+        for hidden in net_arch:
+            layers.append(nn.Linear(in_dim, hidden))
+            layers.append(activation_fn())
+            in_dim = hidden
+        layers.append(nn.Linear(in_dim, 1))
+        self.net = nn.Sequential(*layers)
+
+    def compute(self, inputs, role=""):
+        obs = inputs["observations"]
+        actions = inputs["actions"]
+        if obs.dim() > 2:
+            obs = obs.view(obs.size(0), -1)
+        if actions.dim() > 2:
+            actions = actions.view(actions.size(0), -1)
+        x = torch.cat([obs, actions], dim=-1)
+        q = self.net(x)
+        return q, {}
+
+
+class SkrlModelWrapper:
+    """Adapter to provide SB3-like API for skrl agents."""
+
+    def __init__(self, agent, env, trainer_cfg):
+        self.agent = agent
+        self.env = env
+        self.trainer_cfg = trainer_cfg
+        self.trainer = SequentialTrainer(env=self.env, agents=self.agent, cfg=self.trainer_cfg)
+        self.is_skrl = True
+        self._predict_step = 0
+
+    def set_env(self, env):
+        if isinstance(env, gym.vector.VectorEnv):
+            wrapped_env = wrap_env(VecEnvGymWrapper(env), wrapper="gymnasium", verbose=False)
+        else:
+            wrapped_env = wrap_env(env, wrapper="gymnasium", verbose=False)
+        self.env = wrapped_env
+        self.trainer = SequentialTrainer(env=self.env, agents=self.agent, cfg=self.trainer_cfg)
+
+    def learn(self, total_timesteps, reset_num_timesteps=False, callback=None):
+        self.trainer_cfg.timesteps = int(total_timesteps)
+        self.trainer.train()
+
+    def predict(self, obs, deterministic=True):
+        obs_tensor = torch.as_tensor(obs, device=self.agent.device, dtype=torch.float32)
+        if obs_tensor.dim() == 1:
+            obs_tensor = obs_tensor.unsqueeze(0)
+        actions, _ = self.agent.act(obs_tensor, None, timestep=self._predict_step, timesteps=1)
+        self._predict_step += 1
+        return actions.detach().cpu().numpy(), None
+
+    def save(self, path):
+        self.agent.save(path)
+
+
+def _build_skrl_agent(algorithm, env, rl_dict, device, net_arch, activation_fn):
+    obs_space = env.observation_space
+    action_space = env.action_space
+
+    if algorithm == "ppo":
+        policy = GaussianPolicy(obs_space, action_space, device, net_arch, activation_fn)
+        value = ValueModel(obs_space, device, net_arch, activation_fn)
+        models = {"policy": policy, "value": value}
+        cfg = PPO_CFG()
+        cfg.learning_rate = rl_dict.get("learning_rate", 3e-4)
+        cfg.rollouts = rl_dict.get("rollouts", 16)
+        cfg.learning_epochs = rl_dict.get("learning_epochs", 8)
+        cfg.mini_batches = rl_dict.get("mini_batches", 2)
+        memory = RandomMemory(memory_size=cfg.rollouts, num_envs=env.num_envs, device=device)
+        agent = PPO(models=models, memory=memory, observation_space=obs_space, action_space=action_space, device=device, cfg=asdict(cfg))
+        return agent
+
+    if algorithm == "sac":
+        policy = GaussianPolicy(obs_space, action_space, device, net_arch, activation_fn)
+        critic_1 = CriticModel(obs_space, action_space, device, net_arch, activation_fn)
+        critic_2 = CriticModel(obs_space, action_space, device, net_arch, activation_fn)
+        target_critic_1 = copy.deepcopy(critic_1)
+        target_critic_2 = copy.deepcopy(critic_2)
+        models = {
+            "policy": policy,
+            "critic_1": critic_1,
+            "critic_2": critic_2,
+            "target_critic_1": target_critic_1,
+            "target_critic_2": target_critic_2,
+        }
+        cfg = SAC_CFG()
+        cfg.learning_rate = rl_dict.get("learning_rate", 3e-4)
+        cfg.batch_size = rl_dict.get("batch_size", 256)
+        cfg.polyak = rl_dict.get("tau", 0.005)
+        memory = RandomMemory(memory_size=rl_dict.get("buffer_size", 1_000_000), num_envs=env.num_envs, device=device)
+        agent = SAC(models=models, memory=memory, observation_space=obs_space, action_space=action_space, device=device, cfg=asdict(cfg))
+        return agent
+
+    if algorithm == "td3":
+        policy = DeterministicPolicy(obs_space, action_space, device, net_arch, activation_fn)
+        critic_1 = CriticModel(obs_space, action_space, device, net_arch, activation_fn)
+        critic_2 = CriticModel(obs_space, action_space, device, net_arch, activation_fn)
+        target_critic_1 = copy.deepcopy(critic_1)
+        target_critic_2 = copy.deepcopy(critic_2)
+        models = {
+            "policy": policy,
+            "critic_1": critic_1,
+            "critic_2": critic_2,
+            "target_critic_1": target_critic_1,
+            "target_critic_2": target_critic_2,
+        }
+        cfg = TD3_CFG()
+        cfg.learning_rate = rl_dict.get("learning_rate", 3e-4)
+        cfg.batch_size = rl_dict.get("batch_size", 100)
+        cfg.polyak = rl_dict.get("tau", 0.005)
+        memory = RandomMemory(memory_size=rl_dict.get("buffer_size", 1_000_000), num_envs=env.num_envs, device=device)
+        agent = TD3(models=models, memory=memory, observation_space=obs_space, action_space=action_space, device=device, cfg=asdict(cfg))
+        return agent
+
+    raise ValueError(f"Unknown algorithm: {algorithm}")
+
+
+def run(env_dict, rl_dict, curriculum_dict):
+    scenario = env_dict.get("scenario")
+    param_bounds = env_dict.get("param_bounds")
+    param_names = env_dict.get("param_names")
+    teacher_type = curriculum_dict.get("teacher_type")
+
+    # Create first, exemplary config dict
+    config_dict = {}
+    for key, bounds in zip(param_names, param_bounds):
+        config_dict[key] = random.uniform(bounds[0], bounds[1])
+
+    # Skip Gymnasium check_env for skrl to avoid spurious warnings
+
+    # Create directory to store logs
+    exp_dir = str(int(time.time()))
+    log_dir = os.path.join(f"results/logs_{rl_dict['algorithm']}_{scenario}", exp_dir)
+    os.makedirs(log_dir, exist_ok=True)
+
+    # Save current settings in log directory
+    with open(os.path.join(log_dir, "env_config.json"), "w") as config_file:
+        json.dump(config_dict, config_file)
+    with open(os.path.join(log_dir, "rl_config.json"), "w") as rl_file:
+        json.dump(rl_dict, rl_file)
+
+    # Create a single training environment for skrl (avoids vector env warnings)
+    train_env = make_env(0, config_dict=config_dict, env_type=scenario.split('_')[0])()
+    wrapped_env = wrap_env(train_env, wrapper="gymnasium", verbose=False)
+
+    # Build policy kwargs from config
+    act_map = {"relu": nn.ReLU, "tanh": nn.Tanh, "sigmoid": nn.Sigmoid}
+    nb_layers = rl_dict.get("nb_layers", 2)
+    nb_neurons = rl_dict.get("nb_neurons", 64)
+    activation_fn = act_map.get(rl_dict.get("activation_fn", "relu").lower(), nn.ReLU)
+    net_arch = [nb_neurons] * nb_layers
+    total_timesteps = rl_dict.get("nb_training_steps", 5_000_000)
+    algorithm = rl_dict.get("algorithm", "ppo").lower()
+
+    if algorithm == "rppo":
+        raise ValueError("Recurrent PPO is not supported in skrl training yet.")
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    agent = _build_skrl_agent(
+        algorithm=algorithm,
+        env=wrapped_env,
+        rl_dict=rl_dict,
+        device=device,
+        net_arch=net_arch,
+        activation_fn=activation_fn,
+    )
+
+    trainer_cfg = SequentialTrainerCfg(timesteps=total_timesteps, headless=True)
+    model = SkrlModelWrapper(agent=agent, env=wrapped_env, trainer_cfg=trainer_cfg)
+
+    # Choose the right teacher
+    if teacher_type == "alpgmm":
+        teacher = ALPGMMTeacher(model, param_bounds, env_type=scenario.split('_')[0], curriculum_dict=curriculum_dict, rl_dict=rl_dict, log_dir=log_dir)
+    elif teacher_type == "oracle":
+        teacher = OracleTeacher(model, param_bounds, env_type=scenario.split('_')[0], curriculum_dict=curriculum_dict, rl_dict=rl_dict, log_dir=log_dir)
+    elif teacher_type == "random":
+        teacher = RandomTeacher(model, param_bounds, env_type=scenario.split('_')[0], curriculum_dict=curriculum_dict, rl_dict=rl_dict, log_dir=log_dir)
+    elif teacher_type == "rl":
+        raise ValueError("RL teacher is not supported for skrl training yet.")
+    else:
+        raise ValueError("Unknown teacher type: {}".format(teacher_type))
+
+    teacher.run_training()
+
+    try:
+        teacher.plot()
+    except Exception as e:
+        print(f"Error plotting teacher data: {e}")
+
+    model.save(os.path.join(log_dir, "final_model.zip"))
