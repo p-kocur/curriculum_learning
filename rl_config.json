@@ -15,10 +15,10 @@
     "nb_training_steps": 5000000,
 
     "//nb_training_envs": "Number of parallel training environments.",
-    "nb_training_envs": 4,
+    "nb_training_envs": 2,
 
     "//nb_eval_envs": "Number of parallel evaluation environments.",
-    "nb_eval_envs": 4,
+    "nb_eval_envs": 2,
 
     "//nb_eval_every": "Evaluate the agent every n steps.",
     "nb_eval_every": 50000

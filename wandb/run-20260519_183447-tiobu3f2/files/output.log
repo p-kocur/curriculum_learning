@@ -1,0 +1,86 @@
+Teacher training step 0/5000000
+Creating training environments...
+Created training environments in 0.07 seconds
+[34m[1mwandb[0m: wandb.init() called while a run is active and reinit is set to 'default', so returning the previous run.
+100%|██████████████████████████████████████████████████████████████████████████████████████████████████| 2000/2000 [00:05<00:00, 338.38it/s]
+Timestep: 0
+Evaluating competence at step 0...
+Competence: 0.0 ± 0.0
+Saving competence plot to results/logs_ppo_bipedal_walker/1779208485/bipedal
+Plotted!
+Saved competence history to results/logs_ppo_bipedal_walker/1779208485/competence_history.json
+Competence evaluation took 61.17 seconds
+Teacher training step 2000/5000000
+Creating training environments...
+Created training environments in 0.07 seconds
+[34m[1mwandb[0m: wandb.init() called while a run is active and reinit is set to 'default', so returning the previous run.
+100%|██████████████████████████████████████████████████████████████████████████████████████████████████| 2000/2000 [00:06<00:00, 318.76it/s]
+Timestep: 2000
+Teacher training step 4000/5000000
+Creating training environments...
+Created training environments in 0.08 seconds
+[34m[1mwandb[0m: wandb.init() called while a run is active and reinit is set to 'default', so returning the previous run.
+ 59%|█████████████████████████████████████████████████████████▉                                        | 1183/2000 [00:03<00:02, 315.27it/s]
+Traceback (most recent call last):
+  File "/home/pkocur/Documents/curriculum_learning/src/teachers_skrl.py", line 190, in run_training
+    self.model.learn(total_timesteps=step_size, reset_num_timesteps=False, callback=self.eval_callback)
+  File "/home/pkocur/Documents/curriculum_learning/src/run_training_skrl.py", line 155, in learn
+    self.trainer.train()
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/skrl/trainers/torch/sequential.py", line 77, in train
+    super().train()
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/skrl/trainers/torch/base.py", line 246, in train
+    self.agents.post_interaction(timestep=timestep, timesteps=self.cfg.timesteps)
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/skrl/agents/torch/ppo/ppo.py", line 324, in post_interaction
+    self.update(timestep=timestep, timesteps=timesteps)
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/skrl/agents/torch/ppo/ppo.py", line 446, in update
+    self.scaler.step(self.optimizer)
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/torch/amp/grad_scaler.py", line 384, in step
+    return optimizer.step(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/torch/optim/optimizer.py", line 485, in wrapper
+    out = func(*args, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/torch/optim/optimizer.py", line 79, in _use_grad
+    ret = func(self, *args, **kwargs)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/torch/optim/adam.py", line 246, in step
+    adam(
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/torch/optim/optimizer.py", line 147, in maybe_fallback
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/torch/optim/adam.py", line 933, in adam
+    func(
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/torch/optim/adam.py", line 525, in _single_tensor_adam
+    denom = (exp_avg_sq.sqrt() / bias_correction2_sqrt).add_(eps)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/pkocur/Documents/curriculum_learning/run_experiment.py", line 35, in <module>
+    run_skrl(env_dict, rl_dict, curriculum_dict)
+  File "/home/pkocur/Documents/curriculum_learning/src/run_training_skrl.py", line 348, in run
+    teacher.run_training()
+  File "/home/pkocur/Documents/curriculum_learning/src/teachers_skrl.py", line 221, in run_training
+    _close_eval_envs()
+  File "/home/pkocur/Documents/curriculum_learning/src/teachers_skrl.py", line 165, in _close_eval_envs
+    self.evaluate_envs.close()
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/vector/vector_env.py", line 234, in close
+    self.close_extras(**kwargs)
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/vector/async_vector_env.py", line 625, in close_extras
+    pipe.send(("close", None))
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/multiprocessing/connection.py", line 206, in send
+    self._send_bytes(_ForkingPickler.dumps(obj))
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/multiprocessing/connection.py", line 427, in _send_bytes
+    self._send(header + buf)
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/multiprocessing/connection.py", line 384, in _send
+    n = write(self._handle, buf)
+        ^^^^^^^^^^^^^^^^^^^^^^^^
+BrokenPipeError: [Errno 32] Broken pipe
+[38;20m[skrl:INFO] Closing environment[0m
+[38;20m[skrl:INFO] Environment closed[0m
+[38;20m[skrl:INFO] Closing environment[0m
+[38;20m[skrl:INFO] Environment closed[0m
+[38;20m[skrl:INFO] Closing environment[0m
+[38;20m[skrl:INFO] Environment closed[0m

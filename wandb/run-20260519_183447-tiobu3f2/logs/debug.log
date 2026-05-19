@@ -1,0 +1,69 @@
+2026-05-19 18:34:47,644 INFO    MainThread:151215 [wandb_setup.py:_flush():81] Current SDK version is 0.27.0
+2026-05-19 18:34:47,644 INFO    MainThread:151215 [wandb_setup.py:_flush():81] Configure stats pid to 151215
+2026-05-19 18:34:47,644 INFO    MainThread:151215 [wandb_setup.py:_flush():81] Loading settings from environment variables
+2026-05-19 18:34:47,644 INFO    MainThread:151215 [wandb_init.py:setup_run_log_directory():723] Logging user logs to /home/pkocur/Documents/curriculum_learning/wandb/run-20260519_183447-tiobu3f2/logs/debug.log
+2026-05-19 18:34:47,644 INFO    MainThread:151215 [wandb_init.py:setup_run_log_directory():724] Logging internal logs to /home/pkocur/Documents/curriculum_learning/wandb/run-20260519_183447-tiobu3f2/logs/debug-internal.log
+2026-05-19 18:34:47,645 INFO    MainThread:151215 [wandb_init.py:init():851] calling init triggers
+2026-05-19 18:34:47,645 INFO    MainThread:151215 [wandb_init.py:init():856] wandb.init called with sweep_config: {}
+config: {'experiment': {'directory': '', 'experiment_name': '', 'write_interval': 'auto', 'checkpoint_interval': 'auto', 'store_separately': False, 'wandb': True, 'wandb_kwargs': {'project': 'curriculum-learning', 'name': 'random_cpu_test'}}, 'rollouts': 16, 'learning_epochs': 8, 'mini_batches': 2, 'discount_factor': 0.99, 'gae_lambda': 0.95, 'learning_rate': (0.0003, 0.0003), 'learning_rate_scheduler': (None, None), 'learning_rate_scheduler_kwargs': ({}, {}), 'observation_preprocessor': None, 'observation_preprocessor_kwargs': {}, 'state_preprocessor': None, 'state_preprocessor_kwargs': {}, 'value_preprocessor': None, 'value_preprocessor_kwargs': {}, 'random_timesteps': 0, 'learning_starts': 0, 'grad_norm_clip': 0.5, 'ratio_clip': 0.2, 'value_clip': 0.2, 'entropy_loss_scale': 0.0, 'value_loss_scale': 2.5, 'kl_threshold': 0.0, 'time_limit_bootstrap': False, 'rewards_shaper': None, 'mixed_precision': False, 'timesteps': 5000000, 'headless': True, 'render_interval': 1, 'disable_progressbar': False, 'close_environment_at_exit': True, 'environment_info': 'episode', 'stochastic_evaluation': False, 'policy': {'0': Linear(in_features=24, out_features=64, bias=True), '1': ReLU(), '2': Linear(in_features=64, out_features=64, bias=True), '3': ReLU(), '4': Linear(in_features=64, out_features=4, bias=True)}, 'value': {'0': Linear(in_features=24, out_features=64, bias=True), '1': ReLU(), '2': Linear(in_features=64, out_features=64, bias=True), '3': ReLU(), '4': Linear(in_features=64, out_features=1, bias=True)}, '_wandb': {}}
+2026-05-19 18:34:47,645 INFO    MainThread:151215 [wandb_init.py:init():899] starting backend
+2026-05-19 18:34:47,861 INFO    MainThread:151215 [wandb_init.py:init():914] sending inform_init request
+2026-05-19 18:34:48,225 INFO    MainThread:151215 [wandb_init.py:init():919] backend started and connected
+2026-05-19 18:34:48,234 INFO    MainThread:151215 [wandb_init.py:init():989] updated telemetry
+2026-05-19 18:34:48,237 INFO    MainThread:151215 [wandb_init.py:init():1012] communicating run to backend with 90.0 second timeout
+2026-05-19 18:34:48,707 INFO    MainThread:151215 [wandb_init.py:init():1057] starting run threads in backend
+2026-05-19 18:34:48,766 INFO    MainThread:151215 [wandb_run.py:_console_start():2509] atexit reg
+2026-05-19 18:34:48,766 INFO    MainThread:151215 [wandb_run.py:_redirect():2359] redirect: wrap_raw
+2026-05-19 18:34:48,766 INFO    MainThread:151215 [wandb_run.py:_redirect():2428] Wrapping output streams.
+2026-05-19 18:34:48,766 INFO    MainThread:151215 [wandb_run.py:_redirect():2451] Redirects installed.
+2026-05-19 18:34:48,767 INFO    MainThread:151215 [wandb_init.py:init():1095] run started, returning control to user process
+2026-05-19 18:36:08,003 INFO    wandb-AsyncioManager-main:151215 [service_client.py:_forward_responses():122] Reached EOF.
+2026-05-19 18:36:08,003 INFO    wandb-AsyncioManager-main:151215 [mailbox.py:close():154] Closing mailbox, abandoning 1 handles.
+2026-05-19 18:36:08,804 ERROR   wandb-AsyncioManager-main:151215 [asyncio_manager.py:fn_wrap_exceptions():184] Uncaught exception in run_soon callback.
+Traceback (most recent call last):
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/wandb/sdk/lib/asyncio_manager.py", line 182, in fn_wrap_exceptions
+    await fn()
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/wandb/sdk/lib/run_messages.py", line 105, in loop
+    await self._poll_and_print(timeout=None)
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/wandb/sdk/lib/run_messages.py", line 133, in _poll_and_print
+    handle = await self._interface.deliver_async(request)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/wandb/sdk/interface/interface_sock.py", line 58, in deliver_async
+    handle = await self._client.deliver(request)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/wandb/sdk/lib/service/service_client.py", line 57, in deliver
+    handle = self._mailbox.require_response(request)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/wandb/sdk/mailbox/mailbox.py", line 89, in require_response
+    raise MailboxClosedError()
+wandb.sdk.mailbox.mailbox.MailboxClosedError
+2026-05-19 18:36:09,142 ERROR   wandb-AsyncioManager-main:151215 [asyncio_manager.py:fn_wrap_exceptions():184] Uncaught exception in run_soon callback.
+Traceback (most recent call last):
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/wandb/sdk/lib/asyncio_manager.py", line 182, in fn_wrap_exceptions
+    await fn()
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/wandb/sdk/lib/service/service_client.py", line 42, in publish
+    await self._send_server_request(request)
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/wandb/sdk/lib/service/service_client.py", line 84, in _send_server_request
+    await self._drain_writer()
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/wandb/sdk/lib/service/service_client.py", line 92, in _drain_writer
+    await self._writer.drain()
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/asyncio/streams.py", line 392, in drain
+    await self._protocol._drain_helper()
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/asyncio/streams.py", line 166, in _drain_helper
+    raise ConnectionResetError('Connection lost')
+ConnectionResetError: Connection lost
+2026-05-19 18:36:09,143 ERROR   wandb-AsyncioManager-main:151215 [asyncio_manager.py:fn_wrap_exceptions():184] Uncaught exception in run_soon callback.
+Traceback (most recent call last):
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/wandb/sdk/lib/asyncio_manager.py", line 182, in fn_wrap_exceptions
+    await fn()
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/wandb/sdk/lib/service/service_client.py", line 42, in publish
+    await self._send_server_request(request)
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/wandb/sdk/lib/service/service_client.py", line 84, in _send_server_request
+    await self._drain_writer()
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/wandb/sdk/lib/service/service_client.py", line 92, in _drain_writer
+    await self._writer.drain()
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/asyncio/streams.py", line 392, in drain
+    await self._protocol._drain_helper()
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/asyncio/streams.py", line 166, in _drain_helper
+    raise ConnectionResetError('Connection lost')
+ConnectionResetError: Connection lost

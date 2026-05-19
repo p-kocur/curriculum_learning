@@ -1,8 +1,10 @@
 import json
 import os
 import random
+import time
 from collections import deque
 from pathlib import Path
+import time
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -75,7 +77,7 @@ class Teacher:
                 ]
                 for task in evaluate_tasks
             ]
-            self.evaluate_envs = gym.vector.SyncVectorEnv(
+            self.evaluate_envs = gym.vector.AsyncVectorEnv(
                 [
                     make_env(0, config_dict=dict_from_task(task, env_type), env_type=env_type)
                     for task in self.evaluate_tasks
@@ -88,6 +90,7 @@ class Teacher:
         self.seed = 111
         self.random_state = np.random.RandomState(self.seed)
         self.plot_directory = None
+        self._wandb_warned = False
 
         self.current_sum = 0
 
@@ -151,20 +154,95 @@ class Teacher:
         except Exception as e:
             print(f"Failed to save competence history: {e}")
 
+    def _log_competence(self, step, mean_value, std_value=None):
+        wandb_cfg = self.curriculum_dict.get("wandb", {}) if self.curriculum_dict else {}
+        if not wandb_cfg.get("enabled", False):
+            return
+        try:
+            import wandb
+        except Exception as exc:
+            if not self._wandb_warned:
+                print(f"Warning: W&B logging unavailable: {exc}")
+                self._wandb_warned = True
+            return
+        payload = {"competence/mean": float(mean_value)}
+        if std_value is not None:
+            payload["competence/std"] = float(std_value)
+        wandb.log(payload, step=int(step))
+
     def run_training(self):
         total_steps = self.rl_dict["nb_training_steps"]
         step_size = self.curriculum_dict["step_size"]
         eval_every = self.curriculum_dict["eval_every"]
+        def _close_eval_envs():
+            if isinstance(self.evaluate_envs, list):
+                for env in self.evaluate_envs:
+                    env.close()
+            elif hasattr(self.evaluate_envs, "close"):
+                self.evaluate_envs.close()
+        if getattr(self.model, "is_skrl", False):
+            try:
+                for t in range(0, total_steps, step_size):
+                    self.step = t
+                    print(f"Teacher training step {t}/{total_steps}")
+                    task = self.sample_task()
+                    config_dict = dict_from_task(task, self.scenario)
+                    print("Creating training environments... ")
+                    start = time.time()
+                    num_envs = int(self.rl_dict.get("nb_training_envs", 1))
+                    vectorization = str(self.curriculum_dict.get("vectorization", "async")).lower()
+                    env_fns = [
+                        make_env(i, config_dict=config_dict, env_type=self.scenario.split("_")[0])
+                        for i in range(num_envs)
+                    ]
+                    if num_envs > 1 and vectorization == "sync":
+                        train_envs = gym.vector.SyncVectorEnv(env_fns)
+                    elif num_envs > 1:
+                        train_envs = gym.vector.AsyncVectorEnv(env_fns)
+                    else:
+                        train_envs = env_fns[0]()
+                    print(f"Created training environments in {time.time() - start:.2f} seconds")
+                    try:
+                        self.model.set_env(train_envs)
+                        self.model.learn(total_timesteps=step_size, reset_num_timesteps=False, callback=self.eval_callback)
+                    finally:
+                        train_envs.close()
 
-        for t in range(0, total_steps, step_size):
-            self.step = t
-            print(f"Teacher training step {t}/{total_steps}")
-            task = self.sample_task()
-            config_dict = dict_from_task(task, self.scenario)
-            if getattr(self.model, "is_skrl", False):
-                train_env = make_env(0, config_dict=config_dict, env_type=self.scenario.split('_')[0])()
-                self.model.set_env(train_env)
-            else:
+                    reward = self.model.get_last_train_reward()
+                    if reward is None:
+                        reward = 0.0
+                        print("Warning: training reward unavailable; defaulting to 0.0")
+                    self.update(task, reward)
+
+                    if t % eval_every == 0:
+                        print(f"Evaluating competence at step {t}...")
+                        start = time.time()
+                        if self.competence_metric == "binary":
+                            current_sum, current_std = self.compute_competence()
+                            print(f"Competence: {current_sum} ± {current_std}")
+                        else:
+                            current_sum = self.compute_competence()
+                            print(f"Competence: {current_sum}")
+                        self.current_sum = current_sum
+                        self._log_competence(t, current_sum, current_std if self.competence_metric == "binary" else None)
+                        self.competences.append(current_sum)
+                        self.competence_stds.append(current_std)
+                        x = np.linspace(0, self.steps, len(self.competences))
+                        fig, ax = plt.subplots(1, 1)
+                        ax.plot(x, np.array(self.competences))
+                        print(f"Saving competence plot to {self.log_dir / Path(f'{self.env_type}')}")
+                        fig.savefig(self.log_dir / Path(f"{self.env_type}"))
+                        plt.close(fig)
+                        self.plot()
+                        print(f"Competence evaluation took {time.time() - start:.2f} seconds")
+            finally:
+                _close_eval_envs()
+        else:
+            for t in range(0, total_steps, step_size):
+                self.step = t
+                print(f"Teacher training step {t}/{total_steps}")
+                task = self.sample_task()
+                config_dict = dict_from_task(task, self.scenario)
                 train_envs = create_environments(
                     config_dict=config_dict,
                     rl_dict=self.rl_dict,
@@ -172,30 +250,33 @@ class Teacher:
                     eval=False,
                 )
                 self.model.set_env(train_envs)
-            self.model.learn(total_timesteps=step_size, reset_num_timesteps=False, callback=self.eval_callback)
-            eval_envs_task = create_environments(config_dict=config_dict, rl_dict=self.rl_dict, scenario=self.scenario, eval=True)
-            print(f"Evaluating on task: {task}")
-            reward = evaluate_agent(self.model, eval_envs_task, n_episodes=4)
-            print(f"Reward for task {task}: {reward}")
-            self.update(task, reward)
-            print("Updated")
+                self.model.learn(total_timesteps=step_size, reset_num_timesteps=False, callback=self.eval_callback)
+                eval_envs_task = create_environments(
+                    config_dict=config_dict,
+                    rl_dict=self.rl_dict,
+                    scenario=self.scenario,
+                    eval=True,
+                )
+                reward = evaluate_agent(self.model, eval_envs_task, n_episodes=4)
+                self.update(task, reward)
 
-            if t % eval_every == 0:
-                if self.competence_metric == "binary":
-                    current_sum, current_std = self.compute_competence()
-                    print(f"Competence: {current_sum} ± {current_std}")
-                else:
-                    current_sum = self.compute_competence()
-                    print(f"Competence: {current_sum}")
-                self.current_sum = current_sum
-                self.competences.append(current_sum)
-                self.competence_stds.append(current_std)
-                x = np.linspace(0, self.steps, len(self.competences))
-                fig, ax = plt.subplots(1, 1)
-                ax.plot(x, np.array(self.competences))
-                fig.savefig(self.log_dir / Path(f"{self.env_type}"))
-                plt.close(fig)
-                self.plot()
+                if t % eval_every == 0:
+                    if self.competence_metric == "binary":
+                        current_sum, current_std = self.compute_competence()
+                        print(f"Competence: {current_sum} ± {current_std}")
+                    else:
+                        current_sum = self.compute_competence()
+                        print(f"Competence: {current_sum}")
+                    self.current_sum = current_sum
+                    self._log_competence(t, current_sum, current_std if self.competence_metric == "binary" else None)
+                    self.competences.append(current_sum)
+                    self.competence_stds.append(current_std)
+                    x = np.linspace(0, self.steps, len(self.competences))
+                    fig, ax = plt.subplots(1, 1)
+                    ax.plot(x, np.array(self.competences))
+                    fig.savefig(self.log_dir / Path(f"{self.env_type}"))
+                    plt.close(fig)
+                    self.plot()
 
 
 class OracleTeacher(Teacher):

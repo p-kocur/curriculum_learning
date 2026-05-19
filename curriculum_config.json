@@ -1,5 +1,15 @@
 {
     "step_size": 2000,
-    "eval_every": 10000,
-    "update_every": 10000
+    "eval_every": 50000,
+    "update_every": 10000,
+    "vectorization": "async",
+    "torch_threads": 4,
+    "torch_interop_threads": 2,
+    "wandb": {
+        "enabled": true,
+        "project": "curriculum-learning",
+        "entity": null,
+        "name": "random_cpu_test",
+        "tags": []
+    }
 }

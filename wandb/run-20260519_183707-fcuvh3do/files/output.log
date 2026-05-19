@@ -1,0 +1,84 @@
+[34m[1mwandb[0m: wandb.init() called while a run is active and reinit is set to 'default', so returning the previous run.
+Teacher training step 0/5000000
+Creating training environments...
+Created training environments in 0.08 seconds
+[34m[1mwandb[0m: wandb.init() called while a run is active and reinit is set to 'default', so returning the previous run.
+100%|██████████████████████████████████████████████████████████████████████████████████████████████████| 2000/2000 [00:05<00:00, 353.56it/s]
+Timestep: 0
+Evaluating competence at step 0...
+/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/vector/async_vector_env.py:610: UserWarning: [33mWARN: Calling `close` while waiting for a pending call to `step` to complete.[0m
+  logger.warn(
+/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/vector/async_vector_env.py:459: UserWarning: [31mERROR: Received the following error from Worker-46 - Shutting it down[0m
+  self._raise_if_errors(successes)
+/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/vector/async_vector_env.py:459: UserWarning: [31mERROR: Traceback (most recent call last):
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/vector/async_vector_env.py", line 740, in _async_worker
+    command, data = pipe.recv()
+                    ^^^^^^^^^^^
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/multiprocessing/connection.py", line 250, in recv
+    buf = self._recv_bytes()
+          ^^^^^^^^^^^^^^^^^^
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/multiprocessing/connection.py", line 430, in _recv_bytes
+    buf = self._recv(4)
+          ^^^^^^^^^^^^^
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/multiprocessing/connection.py", line 395, in _recv
+    chunk = read(handle, remaining)
+            ^^^^^^^^^^^^^^^^^^^^^^^
+KeyboardInterrupt
+[0m
+  self._raise_if_errors(successes)
+/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/vector/async_vector_env.py:459: UserWarning: [31mERROR: Received the following error from Worker-10 - Shutting it down[0m
+  self._raise_if_errors(successes)
+/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/vector/async_vector_env.py:459: UserWarning: [31mERROR: Received the following error from Worker-47 - Shutting it down[0m
+  self._raise_if_errors(successes)
+/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/vector/async_vector_env.py:459: UserWarning: [31mERROR: Received the following error from Worker-2 - Shutting it down[0m
+  self._raise_if_errors(successes)
+/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/vector/async_vector_env.py:459: UserWarning: [31mERROR: Received the following error from Worker-6 - Shutting it down[0m
+  self._raise_if_errors(successes)
+/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/vector/async_vector_env.py:459: UserWarning: [31mERROR: Received the following error from Worker-36 - Shutting it down[0m
+  self._raise_if_errors(successes)
+/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/vector/async_vector_env.py:459: UserWarning: [31mERROR: Received the following error from Worker-25 - Shutting it down[0m
+  self._raise_if_errors(successes)
+/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/vector/async_vector_env.py:459: UserWarning: [31mERROR: Received the following error from Worker-7 - Shutting it down[0m
+  self._raise_if_errors(successes)
+/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/vector/async_vector_env.py:459: UserWarning: [31mERROR: Received the following error from Worker-39 - Shutting it down[0m
+  self._raise_if_errors(successes)
+/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/vector/async_vector_env.py:459: UserWarning: [31mERROR: Received the following error from Worker-4 - Shutting it down[0m
+  self._raise_if_errors(successes)
+/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/vector/async_vector_env.py:459: UserWarning: [31mERROR: Received the following error from Worker-16 - Shutting it down[0m
+  self._raise_if_errors(successes)
+/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/vector/async_vector_env.py:459: UserWarning: [31mERROR: Received the following error from Worker-29 - Shutting it down[0m
+  self._raise_if_errors(successes)
+/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/vector/async_vector_env.py:459: UserWarning: [31mERROR: Received the following error from Worker-30 - Shutting it down[0m
+  self._raise_if_errors(successes)
+/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/vector/async_vector_env.py:459: UserWarning: [31mERROR: Received the following error from Worker-43 - Shutting it down[0m
+  self._raise_if_errors(successes)
+/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/vector/async_vector_env.py:459: UserWarning: [31mERROR: Traceback (most recent call last):
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/vector/async_vector_env.py", line 765, in _async_worker
+    ) = env.step(data)
+        ^^^^^^^^^^^^^^
+  File "/home/pkocur/Documents/curriculum_learning/utils/utils_skrl.py", line 20, in step
+    return self.env.step(action)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/wrappers/common.py", line 125, in step
+    observation, reward, terminated, truncated, info = self.env.step(action)
+                                                       ^^^^^^^^^^^^^^^^^^^^^
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/envs/box2d/bipedal_walker.py", line 552, in step
+    self.world.Step(1.0 / FPS, 6 * 30, 2 * 30)
+  File "/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/envs/box2d/bipedal_walker.py", line 88, in BeginContact
+    def BeginContact(self, contact):
+
+KeyboardInterrupt
+[0m
+  self._raise_if_errors(successes)
+/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/vector/async_vector_env.py:459: UserWarning: [31mERROR: Received the following error from Worker-8 - Shutting it down[0m
+  self._raise_if_errors(successes)
+/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/vector/async_vector_env.py:459: UserWarning: [31mERROR: Received the following error from Worker-0 - Shutting it down[0m
+  self._raise_if_errors(successes)
+/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/vector/async_vector_env.py:459: UserWarning: [31mERROR: Received the following error from Worker-32 - Shutting it down[0m
+  self._raise_if_errors(successes)
+/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/vector/async_vector_env.py:459: UserWarning: [31mERROR: Received the following error from Worker-3 - Shutting it down[0m
+  self._raise_if_errors(successes)
+/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/vector/async_vector_env.py:459: UserWarning: [31mERROR: Received the following error from Worker-14 - Shutting it down[0m
+  self._raise_if_errors(successes)
+/home/pkocur/miniconda3/envs/rl-env/lib/python3.11/site-packages/gymnasium/vector/async_vector_env.py:459: UserWarning: [31mERROR: Raising the last exception back to the main process.[0m
+  self._raise_if_errors(successes)

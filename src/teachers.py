@@ -72,6 +72,8 @@ class Teacher:
                 sum += score
             return sum/len(self.evaluate_envs)
         elif self.competence_metric == "binary":
+            if hasattr(self.evaluate_envs, "close"):
+                self.evaluate_envs.close()
             # results = []
             # for i, env in enumerate(self.evaluate_envs):
             #     score = evaluate_agent(self.model, env, return_std=False)
@@ -110,7 +112,11 @@ class Teacher:
                         result += 1
                 all_results.append(result/self.evaluate_envs.num_envs)
             
-            return np.mean(all_results), np.std(all_results)
+            mean_result = np.mean(all_results)
+            std_result = np.std(all_results)
+            if hasattr(self.evaluate_envs, "close"):
+                self.evaluate_envs.close()
+            return mean_result, std_result
         
     def plot(self):
         x = np.linspace(0, len(self.competences), len(self.competences))
@@ -161,10 +167,17 @@ class Teacher:
             task = self.sample_task()
             config_dict = dict_from_task(task, self.scenario)
             train_envs = create_environments(config_dict=config_dict, rl_dict=self.rl_dict, scenario=self.scenario, eval=False)
-            self.model.set_env(train_envs)
-            self.model.learn(total_timesteps=step_size, reset_num_timesteps=False, callback=self.eval_callback)
+            try:
+                self.model.set_env(train_envs)
+                self.model.learn(total_timesteps=step_size, reset_num_timesteps=False, callback=self.eval_callback)
+            finally:
+                train_envs.close()
+
             eval_envs_task = create_environments(config_dict=config_dict, rl_dict=self.rl_dict, scenario=self.scenario, eval=True)
-            reward = evaluate_agent(self.model, eval_envs_task, n_episodes=4)
+            try:
+                reward = evaluate_agent(self.model, eval_envs_task, n_episodes=4)
+            finally:
+                eval_envs_task.close()
             self.update(task, reward)
 
             if t % eval_every == 0:

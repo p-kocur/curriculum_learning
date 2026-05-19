@@ -1,0 +1,143 @@
+_wandb:
+    value:
+        cli_version: 0.27.0
+        e:
+            vni5ryxb86av6cqirabxmdc5r6pkaf0b:
+                args:
+                    - --scenario
+                    - bipedal_walker
+                    - --teacher_type
+                    - alpgmm
+                    - --library
+                    - skrl
+                codePath: run_experiment.py
+                codePathLocal: run_experiment.py
+                cpu_count: 6
+                cpu_count_logical: 12
+                disk:
+                    /:
+                        total: "489997189120"
+                        used: "409591517184"
+                email: pkocur@student.agh.edu.pl
+                executable: /home/pkocur/miniconda3/envs/rl-env/bin/python
+                git:
+                    commit: 02f6657e1dd2996bc002186d96b4c29c3f1ac3f3
+                    remote: https://github.com/p-kocur/curriculum_learning.git
+                host: pawel-IdeaPad
+                memory:
+                    total: "14491213824"
+                os: Linux-6.8.0-85-generic-x86_64-with-glibc2.35
+                program: /home/pkocur/Documents/curriculum_learning/run_experiment.py
+                python: CPython 3.11.13
+                root: /home/pkocur/Documents/curriculum_learning
+                startedAt: "2026-05-19T16:34:47.642715Z"
+                writerId: vni5ryxb86av6cqirabxmdc5r6pkaf0b
+        m: []
+        python_version: 3.11.13
+        t:
+            "1":
+                - 1
+                - 5
+                - 53
+            "2":
+                - 1
+                - 5
+                - 53
+            "3":
+                - 13
+                - 16
+                - 24
+                - 35
+            "4": 3.11.13
+            "5": 0.27.0
+            "12": 0.27.0
+            "13": linux-x86_64
+close_environment_at_exit:
+    value: true
+disable_progressbar:
+    value: false
+discount_factor:
+    value: 0.99
+entropy_loss_scale:
+    value: 0
+environment_info:
+    value: episode
+experiment:
+    value:
+        checkpoint_interval: auto
+        directory: ""
+        experiment_name: ""
+        store_separately: false
+        wandb: true
+        wandb_kwargs:
+            name: random_cpu_test
+            project: curriculum-learning
+        write_interval: auto
+gae_lambda:
+    value: 0.95
+grad_norm_clip:
+    value: 0.5
+headless:
+    value: true
+kl_threshold:
+    value: 0
+learning_epochs:
+    value: 8
+learning_rate:
+    value:
+        - 0.0003
+        - 0.0003
+learning_rate_scheduler:
+    value:
+        - null
+        - null
+learning_rate_scheduler_kwargs:
+    value:
+        - {}
+        - {}
+learning_starts:
+    value: 0
+mini_batches:
+    value: 2
+mixed_precision:
+    value: false
+observation_preprocessor:
+    value: null
+policy:
+    value:
+        "0": Linear(in_features=24, out_features=64, bias=True)
+        "1": ReLU()
+        "2": Linear(in_features=64, out_features=64, bias=True)
+        "3": ReLU()
+        "4": Linear(in_features=64, out_features=4, bias=True)
+random_timesteps:
+    value: 0
+ratio_clip:
+    value: 0.2
+render_interval:
+    value: 1
+rewards_shaper:
+    value: null
+rollouts:
+    value: 16
+state_preprocessor:
+    value: null
+stochastic_evaluation:
+    value: false
+time_limit_bootstrap:
+    value: false
+timesteps:
+    value: 5000000
+value:
+    value:
+        "0": Linear(in_features=24, out_features=64, bias=True)
+        "1": ReLU()
+        "2": Linear(in_features=64, out_features=64, bias=True)
+        "3": ReLU()
+        "4": Linear(in_features=64, out_features=1, bias=True)
+value_clip:
+    value: 0.2
+value_loss_scale:
+    value: 2.5
+value_preprocessor:
+    value: null

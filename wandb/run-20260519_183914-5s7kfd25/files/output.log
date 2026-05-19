@@ -1,0 +1,35 @@
+Teacher training step 0/5000000
+Creating training environments...
+Created training environments in 0.08 seconds
+100%|██████████████████████████████████████████████████████████████████████████████████████████████████| 2000/2000 [00:05<00:00, 346.50it/s]
+Timestep: 0
+Evaluating competence at step 0...
+Competence: 0.0 ± 0.0
+Saving competence plot to results/logs_ppo_bipedal_walker/1779208755/bipedal
+Plotted!
+Saved competence history to results/logs_ppo_bipedal_walker/1779208755/competence_history.json
+Competence evaluation took 48.55 seconds
+Teacher training step 2000/5000000
+Creating training environments...
+Created training environments in 0.07 seconds
+100%|██████████████████████████████████████████████████████████████████████████████████████████████████| 2000/2000 [00:06<00:00, 328.95it/s]
+Timestep: 2000
+Teacher training step 4000/5000000
+Creating training environments...
+Created training environments in 0.09 seconds
+100%|██████████████████████████████████████████████████████████████████████████████████████████████████| 2000/2000 [00:06<00:00, 304.69it/s]
+Timestep: 4000
+Teacher training step 6000/5000000
+Creating training environments...
+Created training environments in 0.07 seconds
+100%|██████████████████████████████████████████████████████████████████████████████████████████████████| 2000/2000 [00:06<00:00, 324.74it/s]
+Timestep: 6000
+Teacher training step 8000/5000000
+Creating training environments...
+Created training environments in 0.08 seconds
+100%|██████████████████████████████████████████████████████████████████████████████████████████████████| 2000/2000 [00:06<00:00, 322.32it/s]
+Timestep: 8000
+Teacher training step 10000/5000000
+Creating training environments...
+Created training environments in 0.08 seconds
+ 94%|████████████████████████████████████████████████████████████████████████████████████████████▍     | 1887/2000 [00:05<00:00, 316.35it/s]

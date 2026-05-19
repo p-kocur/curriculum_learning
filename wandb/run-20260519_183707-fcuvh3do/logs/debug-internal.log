@@ -1,0 +1,21 @@
+{"time":"2026-05-19T18:37:07.95693464+02:00","level":"INFO","msg":"wandb-core"}
+{"time":"2026-05-19T18:37:07.957148284+02:00","level":"INFO","msg":"stream: starting","core version":"0.27.0"}
+{"time":"2026-05-19T18:37:08.30284167+02:00","level":"INFO","msg":"stream: created new stream","id":"fcuvh3do"}
+{"time":"2026-05-19T18:37:08.302958094+02:00","level":"INFO","msg":"handler: started"}
+{"time":"2026-05-19T18:37:08.303156932+02:00","level":"INFO","msg":"stream: started"}
+{"time":"2026-05-19T18:37:08.303220906+02:00","level":"INFO","msg":"sender: started"}
+{"time":"2026-05-19T18:37:08.303219509+02:00","level":"INFO","msg":"writer: started","stream_id":"fcuvh3do"}
+{"time":"2026-05-19T18:37:10.040351314+02:00","level":"INFO","msg":"filestream: sending request","total_files":1,"console_offset":0,"console_lines":1}
+{"time":"2026-05-19T18:37:10.418915037+02:00","level":"INFO","msg":"filestream: request sent","status":"200 OK"}
+{"time":"2026-05-19T18:37:25.041114794+02:00","level":"INFO","msg":"filestream: sending request","total_files":2,"events_offset":0,"events_lines":1,"console_offset":1,"console_lines":7,"uploaded_len":2}
+{"time":"2026-05-19T18:37:25.308010788+02:00","level":"INFO","msg":"filestream: request sent","status":"200 OK"}
+{"time":"2026-05-19T18:37:40.040948378+02:00","level":"INFO","msg":"filestream: sending request","total_files":1,"events_offset":1,"events_lines":1}
+{"time":"2026-05-19T18:37:40.430243515+02:00","level":"INFO","msg":"filestream: request sent","status":"200 OK"}
+{"time":"2026-05-19T18:37:44.556856182+02:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2026-05-19T18:37:44.557064867+02:00","level":"INFO","msg":"filestream: sending request","total_files":2,"console_offset":8,"console_lines":76,"uploaded_len":3,"complete":true,"exit_code":0}
+{"time":"2026-05-19T18:37:44.878489977+02:00","level":"INFO","msg":"filestream: request sent","status":"200 OK"}
+{"time":"2026-05-19T18:37:44.879467124+02:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2026-05-19T18:37:44.882277459+02:00","level":"INFO","msg":"stream: finishing up"}
+{"time":"2026-05-19T18:37:44.882289751+02:00","level":"INFO","msg":"handler: closed"}
+{"time":"2026-05-19T18:37:44.882367205+02:00","level":"INFO","msg":"sender: closed"}
+{"time":"2026-05-19T18:37:44.882382709+02:00","level":"INFO","msg":"stream: all finished"}

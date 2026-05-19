@@ -1,0 +1,36 @@
+{
+  "os": "Linux-6.8.0-85-generic-x86_64-with-glibc2.35",
+  "python": "CPython 3.11.13",
+  "startedAt": "2026-05-19T16:34:47.642715Z",
+  "args": [
+    "--scenario",
+    "bipedal_walker",
+    "--teacher_type",
+    "alpgmm",
+    "--library",
+    "skrl"
+  ],
+  "program": "/home/pkocur/Documents/curriculum_learning/run_experiment.py",
+  "codePath": "run_experiment.py",
+  "codePathLocal": "run_experiment.py",
+  "git": {
+    "remote": "https://github.com/p-kocur/curriculum_learning.git",
+    "commit": "02f6657e1dd2996bc002186d96b4c29c3f1ac3f3"
+  },
+  "email": "pkocur@student.agh.edu.pl",
+  "root": "/home/pkocur/Documents/curriculum_learning",
+  "host": "pawel-IdeaPad",
+  "executable": "/home/pkocur/miniconda3/envs/rl-env/bin/python",
+  "cpu_count": 6,
+  "cpu_count_logical": 12,
+  "disk": {
+    "/": {
+      "total": "489997189120",
+      "used": "409591517184"
+    }
+  },
+  "memory": {
+    "total": "14491213824"
+  },
+  "writerId": "vni5ryxb86av6cqirabxmdc5r6pkaf0b"
+}

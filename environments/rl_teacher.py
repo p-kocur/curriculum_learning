@@ -73,16 +73,22 @@ class StudentEnv(gym.Env):
             [make_env(i, config_dict=config_dict, env_type=self.scenario.split('_')[0]) for i in range(self.rl_dict["nb_training_envs"])]
         )
 
-        self.student_model.set_env(train_envs)
-        self.student_model.learn(total_timesteps=self.single_training_len, reset_num_timesteps=False, callback=self.eval_callback)
-        
+        try:
+            self.student_model.set_env(train_envs)
+            self.student_model.learn(total_timesteps=self.single_training_len, reset_num_timesteps=False, callback=self.eval_callback)
+        finally:
+            train_envs.close()
+
         eval_envs = SubprocVecEnv(
             [make_env(i, config_dict=config_dict, env_type=self.scenario.split('_')[0]) for i in range(self.rl_dict["nb_eval_envs"])]
         ) if torch.cuda.is_available() else DummyVecEnv(
             [make_env(i, config_dict=config_dict, env_type=self.scenario.split('_')[0]) for i in range(self.rl_dict["nb_eval_envs"])]
         )
 
-        student_reward = evaluate_agent(self.student_model, eval_envs)
+        try:
+            student_reward = evaluate_agent(self.student_model, eval_envs)
+        finally:
+            eval_envs.close()
         student_reward = (student_reward + 100) / (250 + 100)
 
         task = self.state
@@ -144,16 +150,22 @@ class StudentEnv(gym.Env):
             [make_env(i, config_dict=config_dict, env_type=self.scenario.split('_')[0]) for i in range(self.rl_dict["nb_training_envs"])]
         )
 
-        self.student_model.set_env(train_envs)
-        self.student_model.learn(total_timesteps=self.single_training_len, reset_num_timesteps=False, callback=self.eval_callback)
-        
+        try:
+            self.student_model.set_env(train_envs)
+            self.student_model.learn(total_timesteps=self.single_training_len, reset_num_timesteps=False, callback=self.eval_callback)
+        finally:
+            train_envs.close()
+
         eval_envs = SubprocVecEnv(
             [make_env(i, config_dict=config_dict, env_type=self.scenario.split('_')[0]) for i in range(self.rl_dict["nb_eval_envs"])]
         ) if torch.cuda.is_available() else DummyVecEnv(
             [make_env(i, config_dict=config_dict, env_type=self.scenario.split('_')[0]) for i in range(self.rl_dict["nb_eval_envs"])]
         )
 
-        student_reward = evaluate_agent(self.student_model, eval_envs)
+        try:
+            student_reward = evaluate_agent(self.student_model, eval_envs)
+        finally:
+            eval_envs.close()
         print(f"Student reward: {student_reward}")
         student_reward = (student_reward + 100) / (230 + 100)
         task = self.state
@@ -256,16 +268,22 @@ class StudentEnvBandit(gym.Env):
             [make_env(i, config_dict=config_dict, env_type=self.scenario.split('_')[0]) for i in range(self.rl_dict["nb_training_envs"])]
         )
 
-        self.student_model.set_env(train_envs)
-        self.student_model.learn(total_timesteps=self.single_training_len, reset_num_timesteps=False, callback=self.eval_callback)
-        
+        try:
+            self.student_model.set_env(train_envs)
+            self.student_model.learn(total_timesteps=self.single_training_len, reset_num_timesteps=False, callback=self.eval_callback)
+        finally:
+            train_envs.close()
+
         eval_envs = SubprocVecEnv(
             [make_env(i, config_dict=config_dict, env_type=self.scenario.split('_')[0]) for i in range(self.rl_dict["nb_eval_envs"])]
         ) if torch.cuda.is_available() else DummyVecEnv(
             [make_env(i, config_dict=config_dict, env_type=self.scenario.split('_')[0]) for i in range(self.rl_dict["nb_eval_envs"])]
         )
 
-        student_reward = evaluate_agent(self.student_model, eval_envs)
+        try:
+            student_reward = evaluate_agent(self.student_model, eval_envs)
+        finally:
+            eval_envs.close()
         student_reward = (student_reward + 100) / (230 + 100)
 
         task = action

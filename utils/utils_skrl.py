@@ -13,36 +13,80 @@ class FloatRewardWrapper(gym.RewardWrapper):
 
 
 class SafeStepWrapper(gym.Wrapper):
-	"""Recover from occasional Box2D RayCast assertion errors by resetting the env."""
+    """Recover from occasional Box2D RayCast assertion errors by safely triggering a VectorEnv reset."""
 
-	def step(self, action):
-		try:
-			return self.env.step(action)
-		except AssertionError as exc:
-			obs, info = self.env.reset()
-			info = dict(info)
-			info["error"] = f"Recovered from env error: {exc}"
-			reward = 0.0
-			terminated = True
-			truncated = False
-			return obs, reward, terminated, truncated, info
+    def step(self, action):
+        try:
+            return self.env.step(action)
+        except AssertionError as exc:
+            # 1. The physics crashed, so we can't get a real observation.
+            # Create a dummy observation of zeros that matches the env's observation space.
+            dummy_obs = np.zeros(self.observation_space.shape, dtype=self.observation_space.dtype)
+            
+            # 2. Force termination. 
+            reward = 0.0
+            terminated = True
+            truncated = False
+            
+            info = {"error": f"Recovered from env error: {exc}"}
+            
+            # Notice we do NOT call self.env.reset() here!
+            # By returning terminated=True, Gymnasium's VectorEnv will intercept this 
+            # and automatically call reset() on this specific environment before the next step.
+            return dummy_obs, reward, terminated, truncated, info
 
 
-def evaluate_agent(model, eval_envs, n_episodes=4, return_std=False):
+def evaluate_agent(model, eval_envs, n_episodes=2, return_std=False):
+	def _reset_env(env):
+		result = env.reset()
+		if isinstance(result, tuple) and len(result) == 2:
+			return result
+			
+		return result, {}
+
+	def _step_env(env, actions):
+		result = env.step(actions)
+		if len(result) == 5:
+			return result
+			
+		obs, rewards, dones, infos = result
+		terminated = dones
+		truncated = np.zeros_like(dones, dtype=bool)
+		return obs, rewards, terminated, truncated, infos
+
+	num_envs = getattr(eval_envs, "num_envs", 1)
+	vectorized = num_envs > 1
+
 	total_rewards = []
 	for _ in range(n_episodes):
-		obs, _ = eval_envs.reset()
-		done = np.array([False] * eval_envs.num_envs)
-		ep_rewards = np.zeros(eval_envs.num_envs, dtype=np.float32)
+		obs, _ = _reset_env(eval_envs)
+		if vectorized:
+			done = np.array([False] * num_envs)
+			ep_rewards = np.zeros(num_envs, dtype=np.float32)
+		else:
+			done = False
+			ep_rewards = 0.0
 
 		while not np.all(done):
 			actions, _ = model.predict(obs, deterministic=True)
-			obs, rewards, terminated, truncated, _ = eval_envs.step(actions)
-			mask = ~done
-			ep_rewards[mask] += rewards[mask]
-			done = done | terminated | truncated
+			if not vectorized:
+				actions = np.asarray(actions).reshape(-1)
+			obs, rewards, terminated, truncated, _ = _step_env(eval_envs, actions)
+			if vectorized:
+				rewards = np.asarray(rewards)
+				terminated = np.asarray(terminated)
+				truncated = np.asarray(truncated)
+				mask = ~done
+				ep_rewards[mask] += rewards[mask]
+				done = done | terminated | truncated
+			else:
+				ep_rewards += float(rewards)
+				done = bool(terminated) or bool(truncated)
 
-		total_rewards.extend(ep_rewards.tolist())
+		if vectorized:
+			total_rewards.extend(ep_rewards.tolist())
+		else:
+			total_rewards.append(float(ep_rewards))
 
 	mean_reward = float(np.mean(total_rewards))
 	if return_std:
@@ -66,11 +110,20 @@ def make_env(
 		def _init() -> object:
 			stump_height = config_dict.get("stump_height", 1.0)
 			stump_distance = config_dict.get("stump_distance", 1.0)
-			env = FloatRewardWrapper(
-				TimeLimit(
-					ParamBipedalWalker(stump_height=stump_height, stump_distance=stump_distance),
-					max_episode_steps=2000,
-				)
+			# env = FloatRewardWrapper(
+			# 	TimeLimit(
+			# 		ParamBipedalWalker(stump_height=stump_height, stump_distance=stump_distance),
+			# 		max_episode_steps=2000,
+			# 	)
+			# )
+			# env = SafeStepWrapper(env)
+			# env.reset(seed=seed + rank)
+			# return env
+			
+			# ONLY core env and TimeLimit go here. No custom wrappers.
+			env = TimeLimit(
+				ParamBipedalWalker(stump_height=stump_height, stump_distance=stump_distance),
+				max_episode_steps=2000,
 			)
 			env = SafeStepWrapper(env)
 			env.reset(seed=seed + rank)

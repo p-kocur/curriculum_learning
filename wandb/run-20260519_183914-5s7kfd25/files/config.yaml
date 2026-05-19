@@ -1,0 +1,98 @@
+_wandb:
+    value:
+        cli_version: 0.27.0
+        e:
+            xh95ldoc9q6fwrshtme6ku5ywkycw6ci:
+                args:
+                    - --scenario
+                    - bipedal_walker
+                    - --teacher_type
+                    - alpgmm
+                    - --library
+                    - skrl
+                codePath: run_experiment.py
+                codePathLocal: run_experiment.py
+                cpu_count: 6
+                cpu_count_logical: 12
+                disk:
+                    /:
+                        total: "489997189120"
+                        used: "409593331712"
+                email: pkocur@student.agh.edu.pl
+                executable: /home/pkocur/miniconda3/envs/rl-env/bin/python
+                git:
+                    commit: 02f6657e1dd2996bc002186d96b4c29c3f1ac3f3
+                    remote: https://github.com/p-kocur/curriculum_learning.git
+                host: pawel-IdeaPad
+                memory:
+                    total: "14491213824"
+                os: Linux-6.8.0-85-generic-x86_64-with-glibc2.35
+                program: /home/pkocur/Documents/curriculum_learning/run_experiment.py
+                python: CPython 3.11.13
+                root: /home/pkocur/Documents/curriculum_learning
+                startedAt: "2026-05-19T16:39:14.145251Z"
+                writerId: xh95ldoc9q6fwrshtme6ku5ywkycw6ci
+        m: []
+        python_version: 3.11.13
+        t:
+            "1":
+                - 1
+                - 5
+                - 53
+            "2":
+                - 1
+                - 5
+                - 53
+            "3":
+                - 2
+                - 13
+                - 16
+                - 61
+            "4": 3.11.13
+            "5": 0.27.0
+            "12": 0.27.0
+            "13": linux-x86_64
+curriculum:
+    value:
+        eval_every: 50000
+        step_size: 2000
+        teacher_type: alpgmm
+        torch_interop_threads: 2
+        torch_threads: 4
+        update_every: 10000
+        vectorization: async
+        wandb:
+            enabled: true
+            entity: null
+            name: random_cpu_test
+            project: curriculum-learning
+            tags: []
+env:
+    value:
+        param_bounds:
+            - - 0.01
+              - 1
+            - - 0.01
+              - 1
+        param_names:
+            - stump_height
+            - stump_distance
+        scenario: bipedal_walker
+rl:
+    value:
+        //activation_fn: Activation function for the neural network. Can be 'relu', 'tanh', 'sigmoid'.
+        //algorithm: Name of the algorithm to use. Can be 'ppo'.
+        //nb_eval_envs: Number of parallel evaluation environments.
+        //nb_eval_every: Evaluate the agent every n steps.
+        //nb_layers: Number of layers for the neural network.
+        //nb_neurons: Number of neurons per layer.
+        //nb_training_envs: Number of parallel training environments.
+        //nb_training_steps: Number of learning steps in training.
+        activation_fn: relu
+        algorithm: ppo
+        nb_eval_envs: 2
+        nb_eval_every: 50000
+        nb_layers: 2
+        nb_neurons: 64
+        nb_training_envs: 2
+        nb_training_steps: 5000000

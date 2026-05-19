@@ -28,42 +28,9 @@ from skrl.trainers.torch import SequentialTrainer, SequentialTrainerCfg
 from skrl.envs.wrappers.torch import wrap_env
 from skrl.models.torch import Model, GaussianMixin, DeterministicMixin
 
+
 from src.teachers_skrl import OracleTeacher, ALPGMMTeacher, RandomTeacher
 from utils.utils_skrl import make_env
-
-
-class VecEnvGymWrapper(gym.Env):
-    """Adapter to expose a vector env using the Gymnasium API."""
-
-    metadata = {"render_modes": []}
-
-    def __init__(self, vec_env):
-        super().__init__()
-        self.vec_env = vec_env
-        self.observation_space = vec_env.observation_space
-        self.action_space = vec_env.action_space
-        self.num_envs = getattr(vec_env, "num_envs", 1)
-
-    def reset(self, *, seed: int | None = None, options: dict | None = None):
-        result = self.vec_env.reset(seed=seed, options=options)
-        if isinstance(result, tuple) and len(result) == 2:
-            obs, info = result
-        else:
-            obs, info = result, {}
-        return obs, info
-
-    def step(self, action):
-        result = self.vec_env.step(action)
-        if len(result) == 5:
-            obs, rewards, terminated, truncated, infos = result
-        else:
-            obs, rewards, dones, infos = result
-            terminated = dones
-            truncated = np.zeros_like(dones, dtype=bool)
-        return obs, rewards, terminated, truncated, infos
-
-    def close(self):
-        self.vec_env.close()
 
 
 class GaussianPolicy(GaussianMixin, Model):
@@ -179,10 +146,7 @@ class SkrlModelWrapper:
         self._predict_step = 0
 
     def set_env(self, env):
-        if isinstance(env, gym.vector.VectorEnv):
-            wrapped_env = wrap_env(VecEnvGymWrapper(env), wrapper="gymnasium", verbose=False)
-        else:
-            wrapped_env = wrap_env(env, wrapper="gymnasium", verbose=False)
+        wrapped_env = wrap_env(env, wrapper="gymnasium", verbose=False)
         self.env = wrapped_env
         self.trainer = SequentialTrainer(env=self.env, agents=self.agent, cfg=self.trainer_cfg)
 
@@ -198,19 +162,45 @@ class SkrlModelWrapper:
         self._predict_step += 1
         return actions.detach().cpu().numpy(), None
 
+    def get_last_train_reward(self):
+        agent = self.agent[0] if isinstance(self.agent, (list, tuple)) else self.agent
+        tracking = getattr(agent, "tracking_data", {})
+        for key in ("Reward / Total reward (mean)", "Reward / Instantaneous reward (mean)"):
+            values = tracking.get(key, [])
+            if values:
+                return float(np.mean(values))
+        track_rewards = getattr(agent, "_track_rewards", None)
+        if track_rewards:
+            return float(np.mean(track_rewards))
+        return None
+
     def save(self, path):
         self.agent.save(path)
 
 
-def _build_skrl_agent(algorithm, env, rl_dict, device, net_arch, activation_fn):
+def _build_skrl_agent(algorithm, env, rl_dict, device, net_arch, activation_fn, wandb_cfg=None):
     obs_space = env.observation_space
     action_space = env.action_space
+
+    wandb_cfg = wandb_cfg or {}
+    wandb_enabled = bool(wandb_cfg.get("enabled", False))
+    wandb_kwargs = {}
+    if wandb_cfg.get("project"):
+        wandb_kwargs["project"] = wandb_cfg["project"]
+    if wandb_cfg.get("entity"):
+        wandb_kwargs["entity"] = wandb_cfg["entity"]
+    if wandb_cfg.get("name"):
+        wandb_kwargs["name"] = wandb_cfg["name"]
+    if wandb_cfg.get("tags"):
+        wandb_kwargs["tags"] = list(wandb_cfg["tags"])
 
     if algorithm == "ppo":
         policy = GaussianPolicy(obs_space, action_space, device, net_arch, activation_fn)
         value = ValueModel(obs_space, device, net_arch, activation_fn)
         models = {"policy": policy, "value": value}
         cfg = PPO_CFG()
+        cfg.experiment.wandb = wandb_enabled
+        cfg.experiment.wandb_kwargs = wandb_kwargs
         cfg.learning_rate = rl_dict.get("learning_rate", 3e-4)
         cfg.rollouts = rl_dict.get("rollouts", 16)
         cfg.learning_epochs = rl_dict.get("learning_epochs", 8)
@@ -233,6 +223,8 @@ def _build_skrl_agent(algorithm, env, rl_dict, device, net_arch, activation_fn):
             "target_critic_2": target_critic_2,
         }
         cfg = SAC_CFG()
+        cfg.experiment.wandb = wandb_enabled
+        cfg.experiment.wandb_kwargs = wandb_kwargs
         cfg.learning_rate = rl_dict.get("learning_rate", 3e-4)
         cfg.batch_size = rl_dict.get("batch_size", 256)
         cfg.polyak = rl_dict.get("tau", 0.005)
@@ -254,6 +246,8 @@ def _build_skrl_agent(algorithm, env, rl_dict, device, net_arch, activation_fn):
             "target_critic_2": target_critic_2,
         }
         cfg = TD3_CFG()
+        cfg.experiment.wandb = wandb_enabled
+        cfg.experiment.wandb_kwargs = wandb_kwargs
         cfg.learning_rate = rl_dict.get("learning_rate", 3e-4)
         cfg.batch_size = rl_dict.get("batch_size", 100)
         cfg.polyak = rl_dict.get("tau", 0.005)
@@ -269,6 +263,38 @@ def run(env_dict, rl_dict, curriculum_dict):
     param_bounds = env_dict.get("param_bounds")
     param_names = env_dict.get("param_names")
     teacher_type = curriculum_dict.get("teacher_type")
+    torch_threads = curriculum_dict.get("torch_threads")
+    torch_interop_threads = curriculum_dict.get("torch_interop_threads")
+    wandb_cfg = curriculum_dict.get("wandb", {})
+
+    if torch_threads is not None:
+        torch.set_num_threads(int(torch_threads))
+    if torch_interop_threads is not None:
+        torch.set_num_interop_threads(int(torch_interop_threads))
+
+    wandb_run = None
+    if wandb_cfg.get("enabled", False):
+        try:
+            import wandb
+
+            if wandb.run is None:
+                wandb_kwargs = {}
+                if wandb_cfg.get("project"):
+                    wandb_kwargs["project"] = wandb_cfg["project"]
+                if wandb_cfg.get("entity"):
+                    wandb_kwargs["entity"] = wandb_cfg["entity"]
+                if wandb_cfg.get("name"):
+                    wandb_kwargs["name"] = wandb_cfg["name"]
+                if wandb_cfg.get("tags"):
+                    wandb_kwargs["tags"] = list(wandb_cfg["tags"])
+                wandb_kwargs["config"] = {
+                    "env": env_dict,
+                    "rl": rl_dict,
+                    "curriculum": curriculum_dict,
+                }
+                wandb_run = wandb.init(**wandb_kwargs)
+        except Exception as exc:
+            print(f"Warning: failed to initialize W&B: {exc}")
 
     # Create first, exemplary config dict
     config_dict = {}
@@ -288,9 +314,19 @@ def run(env_dict, rl_dict, curriculum_dict):
     with open(os.path.join(log_dir, "rl_config.json"), "w") as rl_file:
         json.dump(rl_dict, rl_file)
 
-    # Create a single training environment for skrl (avoids vector env warnings)
-    train_env = make_env(0, config_dict=config_dict, env_type=scenario.split('_')[0])()
-    wrapped_env = wrap_env(train_env, wrapper="gymnasium", verbose=False)
+    num_envs = int(rl_dict.get("nb_training_envs", 1))
+    vectorization = str(curriculum_dict.get("vectorization", "async")).lower()
+    env_fns = [
+        make_env(rank=i, seed=1, config_dict=config_dict, env_type=scenario.split("_")[0])
+        for i in range(num_envs)
+    ]
+    if num_envs > 1 and vectorization == "sync":
+        vec_env = gym.vector.SyncVectorEnv(env_fns)
+    elif num_envs > 1:
+        vec_env = gym.vector.AsyncVectorEnv(env_fns)
+    else:
+        vec_env = env_fns[0]()
+    envs = wrap_env(vec_env, wrapper="gymnasium", verbose=False)
 
     # Build policy kwargs from config
     act_map = {"relu": nn.ReLU, "tanh": nn.Tanh, "sigmoid": nn.Sigmoid}
@@ -305,17 +341,25 @@ def run(env_dict, rl_dict, curriculum_dict):
         raise ValueError("Recurrent PPO is not supported in skrl training yet.")
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    wandb_cfg_for_agent = dict(wandb_cfg)
+    if wandb_run is not None:
+        wandb_cfg_for_agent["enabled"] = False
+
     agent = _build_skrl_agent(
         algorithm=algorithm,
-        env=wrapped_env,
+        env=envs,
         rl_dict=rl_dict,
         device=device,
         net_arch=net_arch,
         activation_fn=activation_fn,
+        wandb_cfg=wandb_cfg_for_agent,
     )
 
     trainer_cfg = SequentialTrainerCfg(timesteps=total_timesteps, headless=True)
-    model = SkrlModelWrapper(agent=agent, env=wrapped_env, trainer_cfg=trainer_cfg)
+    model = SkrlModelWrapper(agent=agent, env=envs, trainer_cfg=trainer_cfg)
+
+    if isinstance(vec_env, gym.vector.VectorEnv):
+        vec_env.close()
 
     # Choose the right teacher
     if teacher_type == "alpgmm":
@@ -329,11 +373,20 @@ def run(env_dict, rl_dict, curriculum_dict):
     else:
         raise ValueError("Unknown teacher type: {}".format(teacher_type))
 
-    teacher.run_training()
-
     try:
-        teacher.plot()
-    except Exception as e:
-        print(f"Error plotting teacher data: {e}")
+        teacher.run_training()
 
-    model.save(os.path.join(log_dir, "final_model.zip"))
+        try:
+            teacher.plot()
+        except Exception as e:
+            print(f"Error plotting teacher data: {e}")
+
+        model.save(os.path.join(log_dir, "final_model.zip"))
+    finally:
+        if wandb_run is not None:
+            try:
+                import wandb
+
+                wandb.finish()
+            except Exception as exc:
+                print(f"Warning: failed to finish W&B: {exc}")
