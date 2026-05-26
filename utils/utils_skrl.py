@@ -16,6 +16,14 @@ class SafeStepWrapper(gym.Wrapper):
     """Recover from occasional Box2D RayCast assertion errors by safely triggering a VectorEnv reset."""
 
     def step(self, action):
+        if np.any(np.isnan(action)) or np.any(np.isinf(action)):
+            dummy_obs = np.zeros(self.observation_space.shape, dtype=self.observation_space.dtype)
+            reward = -100.0
+            terminated = True
+            truncated = False
+            info = {"error": "NaN or Inf action detected"}
+            return dummy_obs, reward, terminated, truncated, info
+
         try:
             return self.env.step(action)
         except AssertionError as exc:

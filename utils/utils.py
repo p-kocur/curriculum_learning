@@ -12,6 +12,26 @@ from environments.bipedal_parametrized import ParamBipedalWalker
 class FloatRewardWrapper(gym.RewardWrapper):
     def reward(self, reward):
         return float(reward)
+
+class SafeStepWrapper(gym.Wrapper):
+    def step(self, action):
+        if np.any(np.isnan(action)) or np.any(np.isinf(action)):
+            dummy_obs = np.zeros(self.observation_space.shape, dtype=self.observation_space.dtype)
+            reward = -100.0
+            terminated = True
+            truncated = False
+            info = {"error": "NaN or Inf action detected"}
+            return dummy_obs, float(reward), terminated, truncated, info
+
+        try:
+            return self.env.step(action)
+        except AssertionError as exc:
+            dummy_obs = np.zeros(self.observation_space.shape, dtype=self.observation_space.dtype)
+            reward = 0.0
+            terminated = True
+            truncated = False
+            info = {"error": f"Recovered from env error: {exc}"}
+            return dummy_obs, float(reward), terminated, truncated, info
     
 def evaluate_agent(model, eval_envs, n_episodes=4, return_std=False):
     total_rewards = []
@@ -49,6 +69,7 @@ def make_env(rank: int, seed: int = 0, config_dict: Optional[Dict] = None, env_t
             stump_height = config_dict.get("stump_height", 1.0)
             stump_distance = config_dict.get("stump_distance", 1.0)
             env = FloatRewardWrapper(TimeLimit(ParamBipedalWalker(stump_height=stump_height, stump_distance=stump_distance), max_episode_steps=2000))
+            env = SafeStepWrapper(env)
             env.reset(seed=seed + rank)
             return env
     else:

@@ -142,13 +142,18 @@ class SkrlModelWrapper:
         self.env = env
         self.trainer_cfg = trainer_cfg
         self.trainer = SequentialTrainer(env=self.env, agents=self.agent, cfg=self.trainer_cfg)
+        self.trainer.close_environment_at_exit = True
+        self.trainer.headless = True
         self.is_skrl = True
         self._predict_step = 0
 
     def set_env(self, env):
+        if getattr(self, "env", None) is not None:
+            self.env.close()
+            del self.env
         wrapped_env = wrap_env(env, wrapper="gymnasium", verbose=False)
         self.env = wrapped_env
-        self.trainer = SequentialTrainer(env=self.env, agents=self.agent, cfg=self.trainer_cfg)
+        self.trainer.env = wrapped_env
 
     def learn(self, total_timesteps, reset_num_timesteps=False, callback=None):
         self.trainer_cfg.timesteps = int(total_timesteps)
@@ -165,14 +170,26 @@ class SkrlModelWrapper:
     def get_last_train_reward(self):
         agent = self.agent[0] if isinstance(self.agent, (list, tuple)) else self.agent
         tracking = getattr(agent, "tracking_data", {})
+        reward = None
         for key in ("Reward / Total reward (mean)", "Reward / Instantaneous reward (mean)"):
             values = tracking.get(key, [])
             if values:
-                return float(np.mean(values))
-        track_rewards = getattr(agent, "_track_rewards", None)
-        if track_rewards:
-            return float(np.mean(track_rewards))
-        return None
+                reward = float(np.mean(values))
+                break
+        if reward is None:
+            track_rewards = getattr(agent, "_track_rewards", None)
+            if track_rewards:
+                reward = float(np.mean(track_rewards))
+                
+        # Clear tracking data so it doesn't leak memory across iterative learn() calls
+        if hasattr(agent, "tracking_data"):
+            agent.tracking_data.clear()
+        if hasattr(agent, "_track_rewards"):
+            agent._track_rewards.clear()
+        if hasattr(agent, "_track_timesteps"):
+            agent._track_timesteps.clear()
+            
+        return reward
 
     def save(self, path):
         self.agent.save(path)
@@ -202,9 +219,9 @@ def _build_skrl_agent(algorithm, env, rl_dict, device, net_arch, activation_fn, 
         cfg.experiment.wandb = wandb_enabled
         cfg.experiment.wandb_kwargs = wandb_kwargs
         cfg.learning_rate = rl_dict.get("learning_rate", 3e-4)
-        cfg.rollouts = rl_dict.get("rollouts", 16)
-        cfg.learning_epochs = rl_dict.get("learning_epochs", 8)
-        cfg.mini_batches = rl_dict.get("mini_batches", 2)
+        cfg.rollouts = rl_dict.get("rollouts", 8)
+        cfg.learning_epochs = rl_dict.get("learning_epochs", 3)
+        cfg.mini_batches = rl_dict.get("mini_batches", 1)
         memory = RandomMemory(memory_size=cfg.rollouts, num_envs=env.num_envs, device=device)
         agent = PPO(models=models, memory=memory, observation_space=obs_space, action_space=action_space, device=device, cfg=asdict(cfg))
         return agent
@@ -315,7 +332,9 @@ def run(env_dict, rl_dict, curriculum_dict):
         json.dump(rl_dict, rl_file)
 
     num_envs = int(rl_dict.get("nb_training_envs", 1))
-    vectorization = str(curriculum_dict.get("vectorization", "async")).lower()
+    vectorization = str(curriculum_dict.get("vectorization", "sync")).lower()
+    if not torch.cuda.is_available():
+        vectorization = "sync"
     env_fns = [
         make_env(rank=i, seed=1, config_dict=config_dict, env_type=scenario.split("_")[0])
         for i in range(num_envs)

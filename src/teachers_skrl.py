@@ -1,10 +1,12 @@
 import json
 import os
 import random
+import sys
+import threading
 import time
+import traceback
 from collections import deque
 from pathlib import Path
-import time
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -64,8 +66,8 @@ class Teacher:
                 self.partial_rewards.append([])
 
         elif self.competence_metric == "binary":
-            elements_1 = np.linspace(self.mins[0], self.maxs[0], 7)
-            elements_2 = np.linspace(self.mins[1], self.maxs[1], 7)
+            elements_1 = np.linspace(self.mins[0], self.maxs[0], 3)
+            elements_2 = np.linspace(self.mins[1], self.maxs[1], 3)
             for e1 in elements_1:
                 for e2 in elements_2:
                     evaluate_tasks.append([float(e1), float(e2)])
@@ -77,7 +79,14 @@ class Teacher:
                 ]
                 for task in evaluate_tasks
             ]
-            self.evaluate_envs = gym.vector.AsyncVectorEnv(
+
+            # AsyncVectorEnv spawns one process per env. With a 7x7 grid that's 49 processes,
+            # which can easily saturate / thrash CPU and make training appear to "freeze".
+            # On CPU we default to SyncVectorEnv for stability.
+            vectorization = str((curriculum_dict or {}).get("vectorization", "sync")).lower()
+            use_async = vectorization == "async" and torch.cuda.is_available()
+            VecEnv = gym.vector.AsyncVectorEnv if use_async else gym.vector.SyncVectorEnv
+            self.evaluate_envs = VecEnv(
                 [
                     make_env(0, config_dict=dict_from_task(task, env_type), env_type=env_type)
                     for task in self.evaluate_tasks
@@ -93,6 +102,77 @@ class Teacher:
         self._wandb_warned = False
 
         self.current_sum = 0
+        self._monitor_enabled = bool((curriculum_dict or {}).get("monitor_resources", True))
+        self._monitor_interval_s = float((curriculum_dict or {}).get("monitor_interval_s", 30))
+        self._watchdog_timeout_s = float((curriculum_dict or {}).get("watchdog_timeout_s", 60))
+        self._last_progress_time = time.time()
+        self._monitor_stop_event = threading.Event()
+        self._monitor_thread = None
+        self._resource_log_path = None
+        self._watchdog_log_path = None
+
+    def _touch_progress(self):
+        self._last_progress_time = time.time()
+
+    def _log_resources(self):
+        if not self._resource_log_path:
+            return
+        try:
+            # ru_maxrss is in KB on Linux
+            import resource
+
+            rss_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+            rss_mb = rss_kb / 1024.0
+        except Exception:
+            rss_mb = -1.0
+
+        timestamp = time.time()
+        line = f"{timestamp:.3f},{rss_mb:.3f},{threading.active_count()}\n"
+        header = "timestamp,rss_mb,thread_count\n"
+        file_exists = self._resource_log_path.exists()
+        with self._resource_log_path.open("a", encoding="utf-8") as f:
+            if not file_exists:
+                f.write(header)
+            f.write(line)
+
+    def _dump_stacks(self, reason):
+        if not self._watchdog_log_path:
+            return
+        timestamp = time.time()
+        with self._watchdog_log_path.open("a", encoding="utf-8") as f:
+            f.write(f"\n=== Watchdog dump: {timestamp:.3f} ({reason}) ===\n")
+            frames = sys._current_frames()
+            for thread_id, frame in frames.items():
+                f.write(f"\n--- Thread {thread_id} ---\n")
+                f.write("".join(traceback.format_stack(frame)))
+
+    def _monitor_loop(self):
+        while not self._monitor_stop_event.wait(self._monitor_interval_s):
+            self._log_resources()
+            stalled_for = time.time() - self._last_progress_time
+            if stalled_for > self._watchdog_timeout_s:
+                self._dump_stacks(f"no progress for {stalled_for:.1f}s")
+
+    def _start_monitoring(self):
+        if not self._monitor_enabled:
+            return
+        log_dir = Path(self.log_dir) if self.log_dir is not None else Path.cwd()
+        log_dir.mkdir(parents=True, exist_ok=True)
+        self._resource_log_path = log_dir / "resource_log.csv"
+        self._watchdog_log_path = log_dir / "watchdog_stacks.log"
+        # Ensure the file exists so we can see it even before the first dump
+        if not self._watchdog_log_path.exists():
+            self._watchdog_log_path.write_text("", encoding="utf-8")
+        self._monitor_stop_event.clear()
+        self._monitor_thread = threading.Thread(target=self._monitor_loop, daemon=True)
+        self._monitor_thread.start()
+
+    def _stop_monitoring(self):
+        if not self._monitor_enabled:
+            return
+        self._monitor_stop_event.set()
+        if self._monitor_thread is not None:
+            self._monitor_thread.join(timeout=2)
 
     def compute_competence(self):
         if self.competence_metric == "average":
@@ -182,15 +262,20 @@ class Teacher:
                 self.evaluate_envs.close()
         if getattr(self.model, "is_skrl", False):
             try:
+                self._start_monitoring()
                 for t in range(0, total_steps, step_size):
                     self.step = t
+                    self._touch_progress()
                     print(f"Teacher training step {t}/{total_steps}")
                     task = self.sample_task()
                     config_dict = dict_from_task(task, self.scenario)
                     print("Creating training environments... ")
                     start = time.time()
                     num_envs = int(self.rl_dict.get("nb_training_envs", 1))
-                    vectorization = str(self.curriculum_dict.get("vectorization", "async")).lower()
+                    vectorization = str(self.curriculum_dict.get("vectorization", "sync")).lower()
+                    if not torch.cuda.is_available():
+                        # Avoid spawning processes repeatedly on CPU (can leak/thrash and kill throughput)
+                        vectorization = "sync"
                     env_fns = [
                         make_env(i, config_dict=config_dict, env_type=self.scenario.split("_")[0])
                         for i in range(num_envs)
@@ -207,6 +292,8 @@ class Teacher:
                         self.model.learn(total_timesteps=step_size, reset_num_timesteps=False, callback=self.eval_callback)
                     finally:
                         train_envs.close()
+                    self._touch_progress()
+                    self._log_resources()
 
                     reward = self.model.get_last_train_reward()
                     if reward is None:
@@ -235,7 +322,11 @@ class Teacher:
                         plt.close(fig)
                         self.plot()
                         print(f"Competence evaluation took {time.time() - start:.2f} seconds")
+                        self._touch_progress()
+                        self._log_resources()
             finally:
+                self._dump_stacks("shutdown")
+                self._stop_monitoring()
                 _close_eval_envs()
         else:
             for t in range(0, total_steps, step_size):

@@ -74,6 +74,7 @@ class Teacher:
         elif self.competence_metric == "binary":
             if hasattr(self.evaluate_envs, "close"):
                 self.evaluate_envs.close()
+                del self.evaluate_envs
             # results = []
             # for i, env in enumerate(self.evaluate_envs):
             #     score = evaluate_agent(self.model, env, return_std=False)
@@ -116,6 +117,7 @@ class Teacher:
             std_result = np.std(all_results)
             if hasattr(self.evaluate_envs, "close"):
                 self.evaluate_envs.close()
+                del self.evaluate_envs
             return mean_result, std_result
         
     def plot(self):
@@ -172,12 +174,14 @@ class Teacher:
                 self.model.learn(total_timesteps=step_size, reset_num_timesteps=False, callback=self.eval_callback)
             finally:
                 train_envs.close()
+                del train_envs
 
             eval_envs_task = create_environments(config_dict=config_dict, rl_dict=self.rl_dict, scenario=self.scenario, eval=True)
             try:
                 reward = evaluate_agent(self.model, eval_envs_task, n_episodes=4)
             finally:
                 eval_envs_task.close()
+                del eval_envs_task
             self.update(task, reward)
 
             if t % eval_every == 0:
